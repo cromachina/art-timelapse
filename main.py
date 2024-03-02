@@ -48,10 +48,9 @@ def even_dim(a, b):
 
 class ScreenRecorder():
     def __init__(self):
-        self.running = False
+        pass
 
     def start(self, hwnd, output_file=None):
-        self.running = True
         self.hwnd = hwnd
         self.root_hwnd = win32gui.GetAncestor(self.hwnd, win32con.GA_ROOT)
         self.window = win32ui.CreateWindowFromHandle(self.hwnd)
@@ -85,9 +84,14 @@ class ScreenRecorder():
 
     def stop(self):
         self.video_writer.release()
-        self.dc_mem.DeleteDC()
-        self.dc.DeleteDC()
-        self.running = False
+        try:
+            self.dc_mem.DeleteDC()
+        except:
+            pass
+        try:
+            self.dc.DeleteDC()
+        except:
+            pass
 
 class InputTracker():
     def __init__(self, screen_recorder):
@@ -117,7 +121,10 @@ def main():
     print('Press Ctrl+C here to stop')
     try:
         while True:
-            time.sleep(1)
+            time.sleep(0.1)
+            if not win32gui.IsWindow(hwnd):
+                print('Window lost; Stopping now')
+                break
     except KeyboardInterrupt:
         pass
     input_tracker.stop()
