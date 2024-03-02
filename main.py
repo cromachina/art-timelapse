@@ -96,9 +96,13 @@ class ScreenRecorder():
 class InputTracker():
     def __init__(self, screen_recorder):
         self.screen_recorder = screen_recorder
+        self.click_started_in_window = False
 
     def click_track(self, x, y, button, is_pressed):
-        if not is_pressed and self.screen_recorder.root_hwnd == win32gui.GetAncestor(win32gui.WindowFromPoint((x, y)), win32con.GA_ROOT):
+        if is_pressed:
+            self.click_started_in_window = win32gui.WindowFromPoint((x, y)) == self.screen_recorder.hwnd
+        if not is_pressed and self.click_started_in_window:
+            self.click_started_in_window = False
             self.screen_recorder.write_frame()
 
     def start(self):
