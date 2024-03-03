@@ -1,4 +1,5 @@
 name: Build Executable
+run-name: ${{ github.ref_name }}
 
 on:
   push:
