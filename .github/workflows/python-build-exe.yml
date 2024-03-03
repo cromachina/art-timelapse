@@ -28,6 +28,6 @@ jobs:
           path: artifacts
 
       - name: Create release
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v1
         with:
-          artifacts: "artifacts/*"
+          files: ./artifacts/**/*
