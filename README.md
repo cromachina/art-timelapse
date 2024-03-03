@@ -20,10 +20,14 @@ By recording the end of each stroke of a drawing, you get the largest amount of 
 
 ## Installation
 - Install python: https://www.python.org/downloads/
+- Download or clone this repository.
 - Run `pip install -r requirements.txt` to install dependencies
 - Run `python main.py` (or double click on `main.py`) to start the program
 - If recording doesn't work, you may also need to install ffmpeg: https://www.gyan.dev/ffmpeg/builds/#release-builds
   - You can add the bin directory to your path, or copy ffmpeg.exe to the script folder.
+
+## Prebuilt executable
+- You can find a built exe in the releases page instead of going through the installation, although it may still depend on ffmpeg: https://github.com/cromachina/art-timelapse/releases
 
 https://github.com/cromachina/art-timelapse/assets/82557197/3e10a9d4-d855-4e91-8070-8f21aa9c350c
 
