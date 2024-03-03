@@ -1,21 +1,32 @@
 name: Build Executable
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - '*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   pyinstaller-build:
     runs-on: windows-latest
     steps:
-      - name: Create Executable
+      - name: Create executable
         uses: sayyid5416/pyinstaller@v1
         with:
           python_ver: '3.12.1'
           spec: 'main.spec'
           requirements: 'requirements.txt'
           upload_exe_with_name: 'main'
-          options: --onefile, --name "main", --windowed, 
+          options: -F, --name "main",
+          
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*
