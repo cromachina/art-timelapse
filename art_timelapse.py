@@ -46,6 +46,16 @@ def update_max_size(frames_file:ZipFile, old_size, new_size):
         set_max_size(frames_file, new_max_size)
     return new_max_size
 
+def nth_counter(nth):
+    counter = 1
+    while True:
+        if counter == 1:
+            counter = nth
+            yield True
+        else:
+            counter -= 1
+            yield False
+
 def run_export(frame_data:Path, time_limit):
     with ZipFile(frame_data, 'r') as zfile:
         frames = zfile.namelist()
@@ -61,12 +71,9 @@ def run_export(frame_data:Path, time_limit):
         video_file = Path(frame_data).with_suffix('.mp4')
         print(f'Exporting {video_file}')
         video_writer = cv2.VideoWriter(str(video_file), cv2.VideoWriter.fourcc(*'mp4v'), fps, size)
-        counter = 1
+        counter = nth_counter(nth_frame)
         for frame in frames:
-            if counter == 1:
-                counter = nth_frame
-            else:
-                counter -= 1
+            if not next(counter):
                 continue
             with zfile.open(frame, 'r') as mfile:
                 img = Image.open(mfile)
@@ -99,13 +106,16 @@ class InputTracker():
         self.mouse_listener.stop()
         self.mouse_listener.join()
 
-def run_capture(frame_data:Path):
+def run_capture(frame_data:Path, nth_frame):
     with ZipFile(frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile:
         print('Click on a subwindow to start recording')
         window = get_window_from_click_blocking()
         max_size = get_max_size(zfile)
+        counter = nth_counter(nth_frame)
         def capture_frame():
             nonlocal max_size
+            if not next(counter):
+                return
             img = pyscreenshot.grab(bbox=window.bbox)
             max_size = update_max_size(zfile, max_size, img.size)
             with zfile.open(str(time.time_ns()), 'w') as mfile:
@@ -164,23 +174,28 @@ def run_psd_capture(frame_data:Path, target_psd:Path, size_limit):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--frame-data')
-    parser.add_argument('--export', action='store_true')
-    parser.add_argument('--psd_file')
-    parser.add_argument('--size_limit', type=int, default=1000)
-    parser.add_argument('--export-time-limit', type=float, default=60)
+    parser.add_argument('--frame-data', help='Name of the file to store frames in.')
+    parser.add_argument('--export', action='store_true', help='Export the given frame data file to an MP4.')
+    parser.add_argument('--psd_file', help='Instead of screen recording, record the specified PSD file every time it is written to.')
+    parser.add_argument('--size_limit', type=int, default=1000, help='Limit the pixel size from a recorded PSD file.')
+    parser.add_argument('--export-time-limit', type=float, default=60, help='Compress the play time of the exported MP4 file in seconds.')
+    parser.add_argument('--nth-frame', type=int, default=1, help='For screen recording, record only every Nth frame.')
     args = parser.parse_args()
-    if args.frame_data is None:
+    no_frame_data = args.frame_data is None
+    if no_frame_data:
         args.frame_data = f'{time.time_ns()}.frames'
     args.frame_data = Path(args.frame_data)
     args.frame_data.parent.mkdir(parents=True, exist_ok=True)
     if args.export:
-        run_export(args.frame_data, args.export_time_limit)
+        if no_frame_data:
+            print('frame-data must be specified for export')
+        else:
+            run_export(args.frame_data, args.export_time_limit)
     elif args.psd_file is not None:
         args.psd_file = Path(args.psd_file)
         run_psd_capture(args.frame_data, args.psd_file, args.size_limit)
     else:
-        run_capture(args.frame_data)
+        run_capture(args.frame_data, args.nth_frame)
 
 if __name__ == '__main__':
     main()
