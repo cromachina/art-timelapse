@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "art-timelapse"
+version = "1.0.0"
+description = ""
+license = "MIT"
+authors = ["cromachina"]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+opencv_python = "*"
+pynput = "*"
+PyWinCtl = "*"
+pyscreenshot = "*"
+numpy = "*"
+pillow = "*"
+psd_tools = "*"
+watchdog = "*"
+
+[tool.poetry.scripts]
+art-timelapse = "art_timelapse:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
