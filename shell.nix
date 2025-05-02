@@ -2,13 +2,13 @@
 (pkgs.buildFHSEnv {
   name = "python-env";
   targetPkgs = pkgs: (with pkgs; [
-    python313
-    libGL
-    glib
-    xorg.libX11
-    poetry
-    linuxHeaders
     ffmpeg
+    glib
+    libGL
+    poetry
+    python313Full
+    which
+    xorg.libX11
     zlib
   ]);
 }).env

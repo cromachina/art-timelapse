@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import zipfile
 from zipfile import ZipFile
+import tkinter as tk
 
 import cv2
 import pynput
@@ -14,6 +15,74 @@ from PIL import Image, ImageOps
 from psd_tools import PSDImage
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
+
+def make_rect(parent, width, height):
+    rect = tk.Toplevel(parent)
+    rect.overrideredirect(1)
+    rect.geometry(f'{width}x{height}+0+0')
+    rect.wait_visibility()
+    rect.configure(bg='black')
+    rect.attributes('-topmost', True)
+    rect.attributes('-alpha', 0.5)
+    return rect
+
+def get_spanned_rect(pos1, pos2):
+    p1x, p1y = pos1
+    p2x, p2y = pos2
+    return min(p1x, p2x), min(p1y, p2y), max(p1x, p2x), max(p1y, p2y)
+
+def get_bbox_from_drag_rect():
+    win = tk.Tk()
+    sw = win.winfo_screenwidth()
+    sh = win.winfo_screenheight()
+    win.overrideredirect(1)
+    win.geometry(f'{sw}x{sh}+0+0')
+    win.wait_visibility()
+    win.configure(bg='black')
+    win.attributes('-topmost', True)
+    win.attributes('-alpha', 0.25)
+    top_rect = make_rect(win, 0, 0)
+    left_rect = make_rect(win, 0, 0)
+    right_rect = make_rect(win, 0, 0)
+    bottom_rect = make_rect(win, 0, 0)
+    pos1 = None
+    pos2 = None
+    cancelled = False
+
+    def win_motion(event):
+        nonlocal pos2
+        if pos1 is not None:
+            pos2 = (event.x, event.y)
+            lx, ly, rx, ry = get_spanned_rect(pos1, pos2)
+            top_rect.geometry(f'{sw}x{ly}+0+0')
+            left_rect.geometry(f'{lx}x{sh - ly}+0+{ly}')
+            right_rect.geometry(f'{sw - rx}x{sh - ly}+{rx}+{ly}')
+            bottom_rect.geometry(f'{rx - lx}x{sh - ry}+{lx}+{ry}')
+
+    def set_clicked(event):
+        nonlocal pos1
+        win.attributes('-alpha', 0)
+        pos1 = (event.x, event.y)
+        win_motion(event)
+
+    def set_released(event):
+        win.destroy()
+
+    def set_cancelled(event):
+        nonlocal cancelled
+        win.destroy()
+        cancelled = True
+
+    win.bind('<Motion>', win_motion)
+    win.bind('<ButtonPress-1>', set_clicked)
+    win.bind('<ButtonRelease-1>', set_released)
+    win.bind('<ButtonPress-3>', set_cancelled)
+    win.lift()
+    win.mainloop()
+    if cancelled:
+        return None
+    else:
+        return *pos1, *pos2
 
 def get_window_from_click_blocking():
     window = None
@@ -106,17 +175,25 @@ class InputTracker():
         self.mouse_listener.stop()
         self.mouse_listener.join()
 
-def run_capture(frame_data:Path, nth_frame):
-    with ZipFile(frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile:
+def run_capture(frame_data:Path, nth_frame, drag_grab):
+    if drag_grab:
+        print('Click and drag on a window to record that area. Right click to cancel selection.')
+        bbox = get_bbox_from_drag_rect()
+        if bbox is None:
+            return
+        window = pywinctl.getTopWindowAt(*bbox[:2])
+    else:
         print('Click on a subwindow to start recording')
         window = get_window_from_click_blocking()
+
+    with ZipFile(frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile:
         max_size = get_max_size(zfile)
         counter = nth_counter(nth_frame)
         def capture_frame():
             nonlocal max_size
             if not next(counter):
                 return
-            img = pyscreenshot.grab(bbox=window.bbox)
+            img = pyscreenshot.grab(bbox=bbox if drag_grab else window.bbox)
             max_size = update_max_size(zfile, max_size, img.size)
             with zfile.open(str(time.time_ns()), 'w') as mfile:
                 img.save(mfile, format='jpeg', quality=95)
@@ -176,10 +253,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--frame-data', help='Name of the file to store frames in.')
     parser.add_argument('--export', action='store_true', help='Export the given frame data file to an MP4.')
-    parser.add_argument('--psd_file', help='Instead of screen recording, record the specified PSD file every time it is written to.')
-    parser.add_argument('--size_limit', type=int, default=1000, help='Limit the pixel size from a recorded PSD file.')
+    parser.add_argument('--psd-file', help='Instead of screen recording, record the specified PSD file every time it is written to.')
+    parser.add_argument('--size-limit', type=int, default=1000, help='Limit the pixel size from a recorded PSD file.')
     parser.add_argument('--export-time-limit', type=float, default=60, help='Compress the play time of the exported MP4 file in seconds.')
     parser.add_argument('--nth-frame', type=int, default=1, help='For screen recording, record only every Nth frame.')
+    parser.add_argument('--drag-grab', action='store_true', help='Drag a rectangle over a window to capture that area. Useful for when a subwindow cannot be captured by click.')
     args = parser.parse_args()
     no_frame_data = args.frame_data is None
     if no_frame_data:
@@ -195,7 +273,7 @@ def main():
         args.psd_file = Path(args.psd_file)
         run_psd_capture(args.frame_data, args.psd_file, args.size_limit)
     else:
-        run_capture(args.frame_data, args.nth_frame)
+        run_capture(args.frame_data, args.nth_frame, args.drag_grab)
 
 if __name__ == '__main__':
     main()

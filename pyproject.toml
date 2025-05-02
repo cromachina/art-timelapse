@@ -7,13 +7,13 @@ authors = ["cromachina"]
 
 [tool.poetry.dependencies]
 python = "^3.13"
-opencv_python = "*"
-pynput = "*"
-PyWinCtl = "*"
-pyscreenshot = "*"
 numpy = "*"
+opencv_python = "*"
 pillow = "*"
 psd_tools = "*"
+pynput = "*"
+pyscreenshot = "*"
+PyWinCtl = "*"
 watchdog = "*"
 
 [tool.poetry.scripts]
