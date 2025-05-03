@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Create executable
-        uses: sayyid5416/pyinstaller@v1
+        uses: banduk/pyinstaller-poetry-action@v1
         with:
           python_ver: '3.13.2'
           spec: 'art-timelapse.spec'
@@ -27,11 +27,11 @@ jobs:
           options: -F, --name "main",
 
       - name: Download artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
       - name: Create release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ./artifacts/**/*
