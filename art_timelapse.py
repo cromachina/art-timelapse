@@ -133,7 +133,7 @@ def run_export(frame_data:Path, time_limit):
         frame_count = len(frames)
         fps = 30
         nth_frame = 1
-        if time_limit is not None:
+        if time_limit > 0:
             target_frames = time_limit * float(fps)
             if frame_count > target_frames:
                 nth_frame = np.floor(frame_count / target_frames)
@@ -256,7 +256,7 @@ def main():
     parser.add_argument('--export', action='store_true', help='Export the given frame data file to an MP4.')
     parser.add_argument('--psd-file', help='Instead of screen recording, record the specified PSD file every time it is written to.')
     parser.add_argument('--size-limit', type=int, default=1000, help='Limit the pixel size from a recorded PSD file.')
-    parser.add_argument('--export-time-limit', type=float, default=60, help='Compress the play time of the exported MP4 file in seconds.')
+    parser.add_argument('--export-time-limit', type=float, default=60, help='Compress the play time of the exported MP4 file to be no longer than the given seconds. Default is 60 seconds. Set to 0 for uncompressed play time.')
     parser.add_argument('--nth-frame', type=int, default=1, help='For screen recording, record only every Nth frame.')
     parser.add_argument('--drag-grab', action='store_true', help='Drag a rectangle over a window to capture that area. Useful for when a subwindow cannot be captured by click.')
     args = parser.parse_args()
