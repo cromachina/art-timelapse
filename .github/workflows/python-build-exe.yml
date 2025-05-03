@@ -2,12 +2,11 @@ name: Build Executable
 run-name: ${{ github.ref_name }}
 
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [published]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   pyinstaller-build:
@@ -26,12 +25,8 @@ jobs:
           upload_exe_with_name: 'art-timelapse'
           options: -F, --name "main",
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          path: artifacts
-
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ./artifacts/**/*
+          name: executable-${{ matrix.os }}
+          path: ./dist/**/*
