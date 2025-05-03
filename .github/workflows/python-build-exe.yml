@@ -16,14 +16,20 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - name: Create executable
-        uses: banduk/pyinstaller-poetry-action@v1
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
-          python_ver: '3.13.2'
-          spec: 'art-timelapse.spec'
-          poetry: 'poetry.lock'
-          upload_exe_with_name: 'art-timelapse'
-          options: -F, --name "main",
+          python-version: "3.x"
+
+      - name: Install build dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install pyinstaller
+        run: pip install pyinstaller
+
+      - name: Run pyinstaller
+        run: pyinstaller art_timelapse.spec
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

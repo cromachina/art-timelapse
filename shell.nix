@@ -5,10 +5,15 @@
     ffmpeg
     glib
     libGL
-    poetry
     python313Full
     which
     xorg.libX11
     zlib
+    linuxHeaders
   ]);
+  runScript = pkgs.writeScript "init.sh" ''
+    python -m venv venv
+    source venv/bin/activate
+    exec bash
+  '';
 }).env

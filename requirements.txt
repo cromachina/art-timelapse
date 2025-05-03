@@ -1,0 +1,9 @@
+opencv-python==4.11.0.86
+numpy==2.2.5
+Pillow==11.2.1
+psd_tools==1.10.7
+pynput==1.8.1
+pyscreenshot==3.1
+pywinctl==0.4.1
+tqdm==4.67.1
+watchdog==6.0.0

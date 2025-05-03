@@ -16,17 +16,16 @@ By recording the end of each stroke of a drawing, you get the largest amount of 
 - Keystrokes will not create new video frames.
 - You can instead choose to record from a specific PSD file, in which case a frame will be captured every time the PSD file is closed (finished being written to).
 
-## Installation
+## Installation from source
 - Install python: https://www.python.org/downloads/
-- Download or clone this repository.
-- Install poetry: `pip install poetry`
-- Run `poetry install` to install the program and its dependencies.
-- Run `poetry run art-timelapse --help` to see command line arguments.
-- If recording doesn't work, you may also need to install ffmpeg: https://www.gyan.dev/ffmpeg/builds/#release-builds
+- Install dependencies: `pip install -r requirements.txt`
+- See arguments with: `python art_timelapse.py`
+- If exporting doesn't work, you may also need to install ffmpeg: https://www.gyan.dev/ffmpeg/builds/#release-builds
   - You can add the bin directory to your path, or copy ffmpeg.exe to the script folder.
 
 ## Prebuilt executable
 - You can find a built exe in the releases page instead of going through the installation, although it may still depend on ffmpeg: https://github.com/cromachina/art-timelapse/releases
+- I haven't tested these on their respective platforms. They may have issues loading Tk.
 
 https://github.com/cromachina/art-timelapse/assets/82557197/3e10a9d4-d855-4e91-8070-8f21aa9c350c
 
