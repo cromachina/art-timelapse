@@ -14,6 +14,7 @@ psd_tools = "*"
 pynput = "*"
 pyscreenshot = "*"
 PyWinCtl = "*"
+tqdm = "*"
 watchdog = "*"
 
 [tool.poetry.scripts]

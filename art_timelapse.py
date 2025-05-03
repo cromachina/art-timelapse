@@ -15,6 +15,7 @@ from PIL import Image, ImageOps
 from psd_tools import PSDImage
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
+import tqdm
 
 def make_rect(parent, width, height):
     rect = tk.Toplevel(parent)
@@ -141,7 +142,7 @@ def run_export(frame_data:Path, time_limit):
         print(f'Exporting {video_file}')
         video_writer = cv2.VideoWriter(str(video_file), cv2.VideoWriter.fourcc(*'mp4v'), fps, size)
         counter = nth_counter(nth_frame)
-        for frame in frames:
+        for frame in tqdm.tqdm(frames, unit='frames'):
             if not next(counter):
                 continue
             with zfile.open(frame, 'r') as mfile:
