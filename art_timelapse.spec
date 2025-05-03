@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['main.py'],
+    ['art-timelapse.py'],
     pathex=[],
     binaries=[],
     datas=[],
