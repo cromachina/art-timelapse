@@ -154,16 +154,22 @@ def run_export(frame_data:Path, time_limit):
         video_writer.release()
         print('Finished exporting')
 
+def point_in_bbox(bbox, point):
+    return bbox[0] <= point[0] <= bbox[2] and bbox[1] <= point[1] <= bbox[3]
+
 class InputTracker():
-    def __init__(self, target_window, callback):
+    def __init__(self, target_window, callback, bbox=None):
         self.target_window = target_window
         self.callback = callback
+        self.bbox = bbox
         self.click_started_in_window = False
 
     def click_track(self, x, y, button, is_pressed):
         if is_pressed:
             window = pywinctl.getTopWindowAt(x, y)
             self.click_started_in_window = window.getHandle() == self.target_window.getHandle()
+            if self.click_started_in_window and self.bbox != None:
+                self.click_started_in_window = point_in_bbox(self.bbox, (x, y))
         if not is_pressed and self.click_started_in_window:
             self.click_started_in_window = False
             self.callback()
@@ -177,6 +183,7 @@ class InputTracker():
         self.mouse_listener.join()
 
 def run_capture(frame_data:Path, nth_frame, drag_grab):
+    bbox = None
     if drag_grab:
         print('Click and drag on a window to record that area. Right click to cancel selection.')
         bbox = get_bbox_from_drag_rect()
@@ -186,7 +193,6 @@ def run_capture(frame_data:Path, nth_frame, drag_grab):
     else:
         print('Click on a subwindow to start recording')
         window = get_window_from_click_blocking()
-
     with ZipFile(frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile:
         max_size = get_max_size(zfile)
         counter = nth_counter(nth_frame)
@@ -198,7 +204,7 @@ def run_capture(frame_data:Path, nth_frame, drag_grab):
             max_size = update_max_size(zfile, max_size, img.size)
             with zfile.open(str(time.time_ns()), 'w') as mfile:
                 img.save(mfile, format='jpeg', quality=95)
-        input_tracker = InputTracker(window, capture_frame)
+        input_tracker = InputTracker(window, capture_frame, bbox)
         input_tracker.start()
         print(f'Now recording window: {window.title}')
         print(f'Frame data: {frame_data}')
