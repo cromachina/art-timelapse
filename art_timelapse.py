@@ -5,6 +5,7 @@ import os
 import zipfile
 from zipfile import ZipFile
 import tkinter as tk
+import json
 
 import cv2
 import pynput
@@ -100,21 +101,52 @@ def get_window_from_click_blocking():
 def even_dim(a):
     return a if a % 2 == 0 else a - 1
 
-def get_max_size(frames_file:ZipFile):
-    text = frames_file.comment.decode()
-    if text == '':
-        return (0, 0)
-    else:
-        return tuple(map(int, text.split()))
+class Metadata:
+    def __init__(self, frames_file):
+        self.frames_file = frames_file
+        self.load()
 
-def set_max_size(frames_file:ZipFile, size):
-    frames_file.comment = ' '.join(map(str, size)).encode()
+    def __enter__(self):
+        return self
 
-def update_max_size(frames_file:ZipFile, old_size, new_size):
-    new_max_size = tuple(max(a, b) for a, b in zip(old_size, new_size))
-    if any(map(lambda x: x[0] < x[1], zip(old_size, new_max_size))):
-        set_max_size(frames_file, new_max_size)
-    return new_max_size
+    def __exit__(self, *exc_args):
+        try:
+            self.save()
+        except:
+            pass
+
+    def load(self):
+        str_data = self.frames_file.comment.decode()
+        try:
+            metadata = json.loads(str_data)
+            if isinstance(metadata, dict):
+                self.metadata = metadata
+            else:
+                self.metadata = {}
+        except:
+            self.metadata = {}
+
+    def save(self):
+        self.frames_file.comment = json.dumps(self.metadata).encode()
+
+    def get_max_size(self):
+        return tuple(self.metadata.get('max_size', (0, 0)))
+
+    def update_max_size(self, new_size):
+        old_size = self.get_max_size()
+        self.metadata['max_size'] = tuple(max(a, b) for a, b in zip(old_size, new_size))
+
+    def get_bbox(self):
+        bbox = self.metadata.get('bbox')
+        if bbox is not None:
+            bbox = tuple(bbox)
+        return bbox
+
+    def set_bbox(self, bbox):
+        if bbox is None:
+            return
+        old_bbox = self.get_bbox()
+        self.metadata['bbox'] = bbox
 
 def nth_counter(nth):
     counter = 1
@@ -126,19 +158,19 @@ def nth_counter(nth):
             counter -= 1
             yield False
 
-def run_export(frame_data:Path, time_limit):
-    with ZipFile(frame_data, 'r') as zfile:
+def run_export(config):
+    with ZipFile(config.frame_data, 'r') as zfile, Metadata(zfile) as metadata:
         frames = zfile.namelist()
         frames.sort()
         frame_count = len(frames)
         fps = 30
         nth_frame = 1
-        if time_limit > 0:
-            target_frames = time_limit * float(fps)
+        if config.time_limit > 0:
+            target_frames = config.time_limit * float(fps)
             if frame_count > target_frames:
                 nth_frame = np.floor(frame_count / target_frames)
-        size = tuple(map(even_dim, get_max_size(zfile)))
-        video_file = Path(frame_data).with_suffix('.mp4')
+        size = tuple(map(even_dim, metadata.get_max_size()))
+        video_file = Path(config.frame_data).with_suffix('.mp4')
         print(f'Exporting {video_file}')
         video_writer = cv2.VideoWriter(str(video_file), cv2.VideoWriter.fourcc(*'mp4v'), fps, size)
         counter = nth_counter(nth_frame)
@@ -149,8 +181,8 @@ def run_export(frame_data:Path, time_limit):
                 img = Image.open(mfile)
                 if img.size != size:
                     img = ImageOps.pad(img, size)
-                frame_data = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
-                video_writer.write(frame_data)
+                data = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
+                video_writer.write(data)
         video_writer.release()
         print('Finished exporting')
 
@@ -182,32 +214,35 @@ class InputTracker():
         self.mouse_listener.stop()
         self.mouse_listener.join()
 
-def run_capture(frame_data:Path, nth_frame, drag_grab):
-    bbox = None
-    if drag_grab:
-        print('Click and drag on a window to record that area. Right click to cancel selection.')
-        bbox = get_bbox_from_drag_rect()
-        if bbox is None:
-            return
-        window = pywinctl.getTopWindowAt(*bbox[:2])
-    else:
-        print('Click on a subwindow to start recording')
-        window = get_window_from_click_blocking()
-    with ZipFile(frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile:
-        max_size = get_max_size(zfile)
-        counter = nth_counter(nth_frame)
+def run_capture(config):
+    with ZipFile(config.frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile, Metadata(zfile) as metadata:
+        bbox = None
+        should_grab = False
+        if config.use_last_grab:
+            bbox = metadata.get_bbox()
+            should_grab = bbox == None
+        if config.drag_grab or should_grab:
+            print('Click and drag on a window to record that area. Right click to cancel selection.')
+            bbox = get_bbox_from_drag_rect()
+            if bbox is None:
+                return
+            window = pywinctl.getTopWindowAt(*bbox[:2])
+        else:
+            print('Click on a subwindow to start recording')
+            window = get_window_from_click_blocking()
+        metadata.set_bbox(bbox)
+        counter = nth_counter(config.nth_frame)
         def capture_frame():
-            nonlocal max_size
             if not next(counter):
                 return
-            img = pyscreenshot.grab(bbox=bbox if drag_grab else window.bbox)
-            max_size = update_max_size(zfile, max_size, img.size)
+            img = pyscreenshot.grab(bbox=bbox if config.drag_grab else window.bbox)
+            metadata.update_max_size(img.size)
             with zfile.open(str(time.time_ns()), 'w') as mfile:
                 img.save(mfile, format='jpeg', quality=95)
         input_tracker = InputTracker(window, capture_frame, bbox)
         input_tracker.start()
         print(f'Now recording window: {window.title}')
-        print(f'Frame data: {frame_data}')
+        print(f'Frame data: {config.frame_data}')
         print('Press Ctrl+C here to stop')
         try:
             while True:
@@ -231,21 +266,19 @@ class FileEventHandler(FileSystemEventHandler):
         if Path(event.src_path) == self.target:
             self.callback()
 
-def run_psd_capture(frame_data:Path, target_psd:Path, size_limit):
-    with ZipFile(frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile:
-        max_size = get_max_size(zfile)
+def run_psd_capture(config):
+    with ZipFile(config.frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile, Metadata(zfile) as metadata:
         def capture_frame():
-            nonlocal max_size
-            img = PSDImage.open(target_psd).composite()
-            img.thumbnail((size_limit, size_limit))
-            max_size = update_max_size(zfile, max_size, img.size)
+            img = PSDImage.open(config.target_psd).composite()
+            img.thumbnail((config.size_limit, config.size_limit))
+            metadata.update_max_size(img.size)
             with zfile.open(str(time.time_ns()), 'w') as mfile:
                 img.save(mfile, format='jpeg', quality=95)
         observer = Observer()
-        observer.schedule(FileEventHandler(target_psd, capture_frame), target_psd.parent)
+        observer.schedule(FileEventHandler(config.target_psd, capture_frame), config.target_psd.parent)
         observer.start()
-        print(f'Now recording PSD: {target_psd}')
-        print(f'Frame data: {frame_data}')
+        print(f'Now recording PSD: {config.target_psd}')
+        print(f'Frame data: {config.frame_data}')
         print('Press Ctrl+C here to stop')
         try:
             while observer.is_alive():
@@ -265,22 +298,23 @@ def main():
     parser.add_argument('--export-time-limit', type=float, default=60, help='Compress the play time of the exported MP4 file to be no longer than the given seconds. Default is 60 seconds. Set to 0 for uncompressed play time.')
     parser.add_argument('--nth-frame', type=int, default=1, help='For screen recording, record only every Nth frame.')
     parser.add_argument('--drag-grab', action='store_true', help='Drag a rectangle over a window to capture that area. Useful for when a subwindow cannot be captured by click.')
-    args = parser.parse_args()
-    no_frame_data = args.frame_data is None
+    parser.add_argument('--use-last-grab', action='store_true', help='Use the last drag rectangle stored in the frames file, otherwise you will be prompted to grab a new area.')
+    config = parser.parse_args()
+    no_frame_data = config.frame_data is None
     if no_frame_data:
-        args.frame_data = f'{time.time_ns()}.frames'
-    args.frame_data = Path(args.frame_data)
-    args.frame_data.parent.mkdir(parents=True, exist_ok=True)
-    if args.export:
+        config.frame_data = f'{time.time_ns()}.frames'
+    config.frame_data = Path(config.frame_data)
+    config.frame_data.parent.mkdir(parents=True, exist_ok=True)
+    if config.export:
         if no_frame_data:
             print('frame-data must be specified for export')
         else:
-            run_export(args.frame_data, args.export_time_limit)
-    elif args.psd_file is not None:
-        args.psd_file = Path(args.psd_file)
-        run_psd_capture(args.frame_data, args.psd_file, args.size_limit)
+            run_export(config)
+    elif config.psd_file is not None:
+        config.psd_file = Path(config.psd_file)
+        run_psd_capture(config)
     else:
-        run_capture(args.frame_data, args.nth_frame, args.drag_grab)
+        run_capture(config)
 
 if __name__ == '__main__':
     main()
