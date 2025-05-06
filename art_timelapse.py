@@ -6,6 +6,7 @@ import zipfile
 from zipfile import ZipFile
 import tkinter as tk
 import json
+import contextlib
 
 import cv2
 import pynput
@@ -18,14 +19,19 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 import tqdm
 
-def make_rect(parent, width, height):
-    rect = tk.Toplevel(parent)
+FPS = 30
+
+def set_rect_params(rect, width, height, alpha):
     rect.overrideredirect(1)
     rect.geometry(f'{width}x{height}+0+0')
     rect.wait_visibility()
     rect.configure(bg='black')
     rect.attributes('-topmost', True)
-    rect.attributes('-alpha', 0.5)
+    rect.attributes('-alpha', alpha)
+
+def make_rect(parent, width, height):
+    rect = tk.Toplevel(parent)
+    set_rect_params(rect, width, height, 0.5)
     return rect
 
 def get_spanned_rect(pos1, pos2):
@@ -37,12 +43,7 @@ def get_bbox_from_drag_rect():
     win = tk.Tk()
     sw = win.winfo_screenwidth()
     sh = win.winfo_screenheight()
-    win.overrideredirect(1)
-    win.geometry(f'{sw}x{sh}+0+0')
-    win.wait_visibility()
-    win.configure(bg='black')
-    win.attributes('-topmost', True)
-    win.attributes('-alpha', 0.25)
+    set_rect_params(win, sw, sh, 0.25)
     top_rect = make_rect(win, 0, 0)
     left_rect = make_rect(win, 0, 0)
     right_rect = make_rect(win, 0, 0)
@@ -163,7 +164,7 @@ def nth_counter(nth):
 
 class VideoWriter():
     def __init__(self, file_path, fps, size):
-        self.size = tuple(map(even_dim, size))
+        self.size = tuple(map(lambda x: even_dim(int(x)), size))
         self.video_writer = cv2.VideoWriter(str(file_path), cv2.VideoWriter.fourcc(*'mp4v'), fps, self.size)
 
     def __enter__(self):
@@ -178,21 +179,26 @@ class VideoWriter():
         data = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR)
         self.video_writer.write(data)
 
+    def write_numpy(self, data):
+        self.video_writer.write(data)
+
+def get_nth_frame(config, fps, frame_count):
+    nth_frame = 1
+    if config.export_time_limit > 0:
+        target_frames = config.export_time_limit * float(fps)
+        if frame_count > target_frames:
+            nth_frame = np.floor(frame_count / target_frames)
+    return nth_frame
+
 def run_export(config):
     with ZipFile(config.frame_data, 'r') as zfile, Metadata(zfile) as metadata:
         frames = zfile.namelist()
         frames.sort()
         frame_count = len(frames)
-        fps = 30
-        nth_frame = 1
-        if config.export_time_limit > 0:
-            target_frames = config.export_time_limit * float(fps)
-            if frame_count > target_frames:
-                nth_frame = np.floor(frame_count / target_frames)
         video_file = Path(config.frame_data).with_suffix('.mp4')
         print(f'Exporting {video_file}')
-        counter = nth_counter(nth_frame)
-        with VideoWriter(video_file, fps, metadata.get_max_size()) as video_writer:
+        counter = nth_counter(get_nth_frame(config, FPS, frame_count))
+        with VideoWriter(video_file, FPS, metadata.get_max_size()) as video_writer:
             for frame in tqdm.tqdm(frames, unit='frames'):
                 if not next(counter):
                     continue
@@ -200,6 +206,36 @@ def run_export(config):
                     img = Image.open(mfile)
                     video_writer.write(img)
         print('Finished exporting')
+
+@contextlib.contextmanager
+def with_video_capture(file_name):
+    video_capture = cv2.VideoCapture(str(file_name))
+    try:
+        yield video_capture
+    finally:
+        video_capture.release()
+
+def run_convert_video(config):
+    with with_video_capture(config.video_file) as video_capture:
+        frame_count = video_capture.get(cv2.CAP_PROP_FRAME_COUNT)
+        nth_frame = get_nth_frame(config, FPS, frame_count)
+        size = (video_capture.get(cv2.CAP_PROP_FRAME_WIDTH), video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        if nth_frame > 1:
+            short_name = config.video_file.with_stem(config.video_file.stem + '-short')
+            print(f'Converting to {short_name}')
+            counter = nth_counter(nth_frame)
+            with VideoWriter(short_name, FPS, size) as video_writer, tqdm.tqdm(total=frame_count, unit='frames') as prog:
+                while True:
+                    ret, frame = video_capture.read()
+                    prog.update(1)
+                    if ret == False:
+                        break
+                    if not next(counter):
+                        continue
+                    video_writer.write_numpy(frame)
+            print('Finished converting')
+        else:
+            print('Input video already satisfies time constraint; no conversion performed.')
 
 def point_in_bbox(bbox, point):
     return bbox[0] <= point[0] <= bbox[2] and bbox[1] <= point[1] <= bbox[3]
@@ -347,7 +383,8 @@ def main():
     parser.add_argument('--nth-frame', type=int, default=1, help='For screen recording, record only every Nth frame.')
     parser.add_argument('--drag-grab', action='store_true', help='Drag a rectangle over a window to capture that area. Useful for when a subwindow cannot be captured by click.')
     parser.add_argument('--use-last-grab', action='store_true', help='Use the last drag rectangle stored in the frames file, otherwise you will be prompted to grab a new area.')
-    parser.add_argument('--video_file', help='Video file output for recording directly to video (not used by export).')
+    parser.add_argument('--video-file', help='Video file output for recording directly to video (not used by export).')
+    parser.add_argument('--convert', action='store_true', help='Convert a video-file to a time compressed shorter video within the given export-time-limit. This is useful when using video-file only output.')
     config = parser.parse_args()
     no_frame_data = config.frame_data is None
     if no_frame_data:
@@ -359,6 +396,12 @@ def main():
             print('frame-data must be specified for export')
         else:
             run_export(config)
+    elif config.convert:
+        if config.video_file is None:
+            print('video-file must be specified for conversion')
+        else:
+            config.video_file = Path(config.video_file)
+            run_convert_video(config)
     elif config.psd_file is not None:
         config.psd_file = Path(config.psd_file)
         run_psd_capture(config)
