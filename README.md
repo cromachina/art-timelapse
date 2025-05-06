@@ -10,11 +10,14 @@ By recording the end of each stroke of a drawing, you get the largest amount of 
 
 ## Usage
 - When you run the program, it will ask you to click on the window which you want to start capturing.
-  - If using Paint Tool SAI, click inside of the drawing area. If you are using Paint Tool SAI with Wine, it may only be able to capture the entire window.
-- The program will only record a new video frame after you have finished a click that had started in the target window.
+  - If using Paint Tool SAI, click inside of the drawing area. If you are using Paint Tool SAI with Wine, you can use the `--drag-grab` option to drag a rectangle area to record.
+- The program will only record a new video frame after you have finished a click that had started in the target window/area.
   - Because of this, you may leave the program running indefinitely and not have to worry about pausing recording.
 - Keystrokes will not create new video frames.
-- You can instead choose to record from a specific PSD file, in which case a frame will be captured every time the PSD file is closed (finished being written to).
+- By default, frames are recorded to a zip file to be processed later (such as if the recorded area changes size). The frame data can take up a lot of space by itself, but the exported video will be fairly small.
+- You can choose to record directly to a video file by specifying a `--video-file <filename>`, but it will only record a single frame size. This can save some storage space. You can run with `--convert` and optionally `--export-time-limit <seconds>` to shrink the previously recorded video down to a shorter time.
+- You can choose to record from a specific PSD file by specifying `--psd-file <filename>`, in which case a frame will be captured every time the PSD file is finished being written to (such as after saving).
+- You can export from a frame data file with `--export` and specifying the frame data file `--frame-data <filename>`. By default the video will try to be made no longer than 60 seconds, like a timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to let the video time limit be infinite (at 30 FPS).
 
 ## Installation from source
 - Install python: https://www.python.org/downloads/
