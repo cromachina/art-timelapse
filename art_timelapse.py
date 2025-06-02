@@ -19,8 +19,6 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 import tqdm
 
-FPS = 30
-
 def set_rect_params(rect, width, height, alpha):
     rect.overrideredirect(1)
     rect.geometry(f'{width}x{height}+0+0')
@@ -182,10 +180,10 @@ class VideoWriter():
     def write_numpy(self, data):
         self.video_writer.write(data)
 
-def get_nth_frame(config, fps, frame_count):
+def get_nth_frame(config, frame_count):
     nth_frame = 1
     if config.export_time_limit > 0:
-        target_frames = config.export_time_limit * float(fps)
+        target_frames = config.export_time_limit * float(config.fps)
         if frame_count > target_frames:
             nth_frame = np.floor(frame_count / target_frames)
     return nth_frame
@@ -197,8 +195,8 @@ def run_export(config):
         frame_count = len(frames)
         video_file = Path(config.frame_data).with_suffix('.mp4')
         print(f'Exporting {video_file}')
-        counter = nth_counter(get_nth_frame(config, FPS, frame_count))
-        with VideoWriter(video_file, FPS, metadata.get_max_size()) as video_writer:
+        counter = nth_counter(get_nth_frame(config, frame_count))
+        with VideoWriter(video_file, config.fps, metadata.get_max_size()) as video_writer:
             for frame in tqdm.tqdm(frames, unit='frames'):
                 if not next(counter):
                     continue
@@ -218,13 +216,13 @@ def with_video_capture(file_name):
 def run_convert_video(config):
     with with_video_capture(config.video_file) as video_capture:
         frame_count = video_capture.get(cv2.CAP_PROP_FRAME_COUNT)
-        nth_frame = get_nth_frame(config, FPS, frame_count)
+        nth_frame = get_nth_frame(config, frame_count)
         size = (video_capture.get(cv2.CAP_PROP_FRAME_WIDTH), video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         if nth_frame > 1:
             short_name = config.video_file.with_stem(config.video_file.stem + '-short')
             print(f'Converting to {short_name}')
             counter = nth_counter(nth_frame)
-            with VideoWriter(short_name, FPS, size) as video_writer, tqdm.tqdm(total=frame_count, unit='frames') as prog:
+            with VideoWriter(short_name, config.fps, size) as video_writer, tqdm.tqdm(total=frame_count, unit='frames') as prog:
                 while True:
                     ret, frame = video_capture.read()
                     prog.update(1)
@@ -385,6 +383,7 @@ def main():
     parser.add_argument('--use-last-grab', action='store_true', help='Use the last drag rectangle stored in the frames file, otherwise you will be prompted to grab a new area.')
     parser.add_argument('--video-file', help='Video file output for recording directly to video (not used by export).')
     parser.add_argument('--convert', action='store_true', help='Convert a video-file to a time compressed shorter video within the given export-time-limit. This is useful when using video-file only output.')
+    parser.add_argument('--fps', type=int, default=30, help='FPS of an exported video.')
     config = parser.parse_args()
     no_frame_data = config.frame_data is None
     if no_frame_data:
