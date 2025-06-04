@@ -1,19 +1,23 @@
 { pkgs ? import <nixpkgs> { } }:
-(pkgs.buildFHSEnv {
-  name = "python-env";
-  targetPkgs = pkgs: (with pkgs; [
-    ffmpeg
-    glib
+let
+  pythonldlibpath = pkgs.lib.makeLibraryPath (with pkgs; [
+    stdenv.cc.cc
     libGL
+    glib
+  ]);
+in
+pkgs.mkShell {
+  packages = with pkgs; [
+    ffmpeg
     python313Full
-    which
     xorg.libX11
     zlib
     linuxHeaders
-  ]);
-  runScript = pkgs.writeScript "init.sh" ''
+  ];
+  shellHook = ''
+    export LD_LIBRARY_PATH=${pythonldlibpath}
     python -m venv venv
     source venv/bin/activate
     exec bash
   '';
-}).env
+}
