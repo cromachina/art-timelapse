@@ -346,8 +346,7 @@ def run_convert_video(config):
             short_name = config.video_file.with_stem(config.video_file.stem + '-short')
             print(f'Converting to {short_name}')
             counter = nth_counter(nth_frame)
-            with VideoWriter(short_name, config.fps, video_reader.get_size()) as video_writer,
-                 tqdm.tqdm(total=frame_count, unit='frames') as prog:
+            with VideoWriter(short_name, config.fps, video_reader.get_size()) as video_writer, tqdm.tqdm(total=frame_count, unit='frames') as prog:
                 while True:
                     ret, frame = video_reader.read()
                     prog.update(1)
