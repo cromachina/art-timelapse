@@ -440,7 +440,7 @@ async def main():
     parser.add_argument('--video-file', help='Video file output for recording directly to video (not used by export).')
     parser.add_argument('--convert', action='store_true', help='Convert a video-file to a time compressed shorter video within the given export-time-limit. This is useful when using video-file only output.')
     parser.add_argument('--fps', type=int, default=30, help='FPS of an exported video.')
-    parser.add_argument('--auto-save-app', default=True, action='store_true', help='Attempt to auto save the target program by sending it the configured save key when it\'s focused.')
+    parser.add_argument('--auto-save-app', action='store_true', help='Attempt to auto save the target program by sending it the configured save key when it\'s focused.')
     parser.add_argument('--save-delay', type=float, default=1, help='Delay after an action is made before auto-saving target program for PSD recording.')
     parser.add_argument('--save-key', type=str, default='o', help='Hotkey used to save target program.')
     config = parser.parse_args()
@@ -462,6 +462,8 @@ async def main():
             config.video_file = Path(config.video_file)
             run_convert_video(config)
     elif config.psd_file is not None:
+        if no_frame_data:
+            config.frame_data = Path(config.psd_file).with_suffix('.zip')
         config.psd_file = Path(config.psd_file)
         capture_task = asyncio.create_task(run_psd_capture(config))
         if config.auto_save_app:
