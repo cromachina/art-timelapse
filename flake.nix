@@ -23,7 +23,7 @@
         format = "pyproject";
         src = ./.;
         build-system = getPkgs pyproject.build-system.requires;
-        dependencies = getPkgs project.dependencies;
+        dependencies = getPkgs project.dependencies ++ [ pkgs.ffmpeg-full ];
       };
       editablePackage = pyPkgs.mkPythonEditablePackage {
         pname = project.name;
