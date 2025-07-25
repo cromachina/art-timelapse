@@ -427,7 +427,7 @@ async def run_auto_save_app(config):
             delay_task.cancel()
         delay_task = asyncio.create_task(delay_save())
 
-async def main():
+async def async_main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--frame-data', help='Name of the file to store frames in (zip file).')
     parser.add_argument('--export', action='store_true', help='Export the given frame data file to an MP4.')
@@ -476,5 +476,8 @@ async def main():
     else:
         await run_capture_to_frames(config)
 
+def main():
+    asyncio.run(async_main())
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()

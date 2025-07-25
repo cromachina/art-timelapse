@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "art-timelapse"
+version = "1.0.0"
+authors = [
+    { name = "cromachina" }
+]
+license = 'MIT'
+description = "Create timelapses of art programs."
+readme = "README.md"
+requires-python = ">=3.11.2"
+dependencies = [
+    'numpy',
+    'opencv-python',
+    'Pillow',
+    'psd_tools',
+    'pynput',
+    'pyscreenshot',
+    'pywinctl',
+    'tqdm',
+    'watchdog',
+]
+
+[project.urls]
+"Homepage" = "https://github.com/cromachina/art-timelapse"
+
+[project.scripts]
+art-timelapse = "art_timelapse.art_timelapse:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
