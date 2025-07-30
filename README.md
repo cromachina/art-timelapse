@@ -6,7 +6,7 @@ I made this program to be used primarily with Paint Tool SAIv2, (which does not 
 Previously I was reluctant to record drawing videos with OBS Studio, because I would have to do post-processing on every video:
 Cutting dead air from the videos; Concatenating separate recordings together; Speeding up the resulting video to make a timelapse.
 While it is possible to mitigate these issues when using OBS Studio, I wanted a more accurate solution that works sort of like Clip Studio's timelapse feature.
-By recording the end of each stroke of a drawing, you get the largest amount of information about the timelapse without any redundancy, which can end up creating compcat videos with minimal editing.
+By recording the end of each stroke of a drawing, you get the largest amount of information about the timelapse without any redundancy, which can end up creating compact videos with minimal editing.
 
 ### Usage
 - When you run the program, it will ask you to click on the window which you want to start capturing.
