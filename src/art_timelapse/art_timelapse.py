@@ -453,13 +453,17 @@ async def async_main():
     config = parser.parse_args()
     no_frame_data = config.frame_data is None
     if no_frame_data:
-        config.frame_data = f'{time.time_ns()}.zip'
+        if config.psd_file is not None:
+            config.frame_data = Path(config.psd_file).with_suffix('.zip')
+            no_frame_data = False
+        else:
+            config.frame_data = f'{time.time_ns()}.zip'
     config.frame_data = Path(config.frame_data)
     config.frame_data.parent.mkdir(parents=True, exist_ok=True)
     print('Press Ctrl+C here to stop at any time')
     if config.export:
         if no_frame_data:
-            print('frame-data must be specified for export')
+            print('frame-data or psd-file must be specified for export')
         else:
             run_export(config)
     elif config.convert:
@@ -469,8 +473,6 @@ async def async_main():
             config.video_file = Path(config.video_file)
             run_convert_video(config)
     elif config.psd_file is not None:
-        if no_frame_data:
-            config.frame_data = Path(config.psd_file).with_suffix('.zip')
         config.psd_file = Path(config.psd_file)
         capture_task = asyncio.create_task(run_psd_capture(config))
         if config.auto_save_app:
