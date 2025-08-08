@@ -396,7 +396,14 @@ async def run_psd_capture(config):
     with ZipFile(config.frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile, Metadata(zfile) as metadata:
         print(f'Frame data: {config.frame_data}')
         async for _ in get_file_tracker_events(config.psd_file):
-            img = PSDImage.open(config.psd_file).composite()
+            while True:
+                try:
+                    img = PSDImage.open(config.psd_file).composite()
+                except:
+                    await asyncio.sleep(0.25)
+                    continue
+                else:
+                    break
             img.thumbnail((config.psd_size_limit, config.psd_size_limit))
             metadata.update_max_size(img.size)
             with zfile.open(str(time.time_ns()), 'w') as mfile:
