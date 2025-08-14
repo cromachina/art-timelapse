@@ -15,9 +15,9 @@ from watchdog.observers import Observer
 import cv2
 import numpy as np
 import pynput
-import pyscreenshot
 import pywinctl
 import tqdm
+from mss import mss
 
 def even_dim(a):
     return a if a % 2 == 0 else a - 1
@@ -359,8 +359,12 @@ def run_convert_video(config):
         else:
             print('Input video already satisfies time constraint; no conversion performed.')
 
+def grab(sct, bbox):
+    img = sct.grab(bbox)
+    return Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
+
 async def run_capture_to_frames(config):
-    with ZipFile(config.frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile, Metadata(zfile) as metadata:
+    with ZipFile(config.frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile, Metadata(zfile) as metadata, mss() as sct:
         window, bbox = get_window_and_bbox(config, metadata)
         if window == None:
             return
@@ -370,7 +374,7 @@ async def run_capture_to_frames(config):
         async for _ in get_input_tracker_events(window, bbox):
             if not next(counter):
                 continue
-            img = pyscreenshot.grab(bbox=bbox if config.drag_grab else window.bbox)
+            img = grab(sct, bbox)
             metadata.update_max_size(img.size)
             with zfile.open(str(time.time_ns()), 'w') as mfile:
                 img.save(mfile, format='jpeg', quality=95)
@@ -382,13 +386,13 @@ async def run_capture_to_video(config):
         return
     if bbox is None:
         bbox = window.bbox
-    with VideoWriter(config.video_file, config.fps, (bbox[2] - bbox[0], bbox[3] - bbox[1])) as video_writer:
+    with VideoWriter(config.video_file, config.fps, (bbox[2] - bbox[0], bbox[3] - bbox[1])) as video_writer, mss() as sct:
         counter = nth_counter(config.nth_frame)
         print(f'Video output: {config.video_file}')
         async for _ in get_input_tracker_events(window, bbox):
             if not next(counter):
                 continue
-            img = pyscreenshot.grab(bbox=bbox)
+            img = grab(sct, bbox)
             video_writer.write(img)
         print('Finished recording')
 

@@ -18,10 +18,10 @@ dependencies = [
     'Pillow',
     'psd_tools',
     'pynput',
-    'pyscreenshot',
     'pywinctl',
     'tqdm',
     'watchdog',
+    'mss',
 ]
 
 [project.urls]
