@@ -206,7 +206,7 @@ class Metadata:
 class VideoWriter():
     def __init__(self, file_path, fps, size):
         self.size = tuple(map(lambda x: even_dim(int(x)), size))
-        self.video_writer = cv2.VideoWriter(str(file_path), cv2.VideoWriter.fourcc(*'mp4v'), fps, self.size)
+        self.video_writer = cv2.VideoWriter(str(file_path), cv2.VideoWriter.fourcc(*'avc1'), fps, self.size)
 
     def __enter__(self):
         return self
