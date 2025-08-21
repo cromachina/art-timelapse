@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ['art_timelapse.py'],
+    ['src/art_timelapse/art_timelapse.py'],
     pathex=[],
     binaries=[],
     datas=[],
