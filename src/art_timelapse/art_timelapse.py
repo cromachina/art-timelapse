@@ -18,6 +18,7 @@ import pynput
 import pywinctl
 import tqdm
 from mss import mss
+from . import sai
 
 def even_dim(a):
     return a if a % 2 == 0 else a - 1
@@ -110,6 +111,7 @@ def get_bbox_from_drag_rect():
         return *pos1, *pos2
 
 def get_window_from_click():
+    print('Click on a subwindow to start recording. Right click to cancel.')
     window = None
     def on_click(x, y, button, is_pressed):
         nonlocal window
@@ -137,12 +139,22 @@ def get_window_and_bbox(config, metadata=None):
         bbox = metadata.get_bbox()
         if bbox is None:
             return drag_window_and_bbox()
-        return None, None
+        else:
+            return get_window_from_click(), bbox
     elif config.drag_grab:
         return drag_window_and_bbox()
     else:
-        print('Click on a subwindow to start recording. Right click to cancel.')
         return get_window_from_click(), None
+
+def get_window_from_pid(pid):
+    result = None
+    for window in pywinctl.getAllWindows():
+        if window.getPID() == pid:
+            result = window
+    if result is None:
+        print('Could not find window automatically')
+        result = get_window_from_click()
+    return result
 
 class Metadata:
     def __init__(self, frames_file:ZipFile):
@@ -249,8 +261,9 @@ class InputTracker():
         if is_pressed:
             window = pywinctl.getTopWindowAt(x, y)
             self.click_started_in_window = window.getHandle() == self.target_window.getHandle()
-            if self.click_started_in_window and self.bbox != None:
-                self.click_started_in_window = point_in_bbox(self.bbox, (x, y))
+            if self.click_started_in_window:
+                bbox = window.rect if self.bbox is None else self.bbox
+                self.click_started_in_window = point_in_bbox(bbox, (x, y))
         if not is_pressed and self.click_started_in_window:
             self.click_started_in_window = False
             self.loop.call_soon_threadsafe(self.queue.put_nowait, None)
@@ -321,6 +334,7 @@ async def get_file_tracker_events(target_file):
         except asyncio.CancelledError:
             print(f'Stopped watching file for changes: {target_file}')
 
+# Export frames captured to a zip file to video.
 def run_export(config):
     with ZipFile(config.frame_data, 'r') as zfile, Metadata(zfile) as metadata:
         frames = zfile.namelist()
@@ -338,6 +352,7 @@ def run_export(config):
                     video_writer.write(img)
         print('Finished exporting')
 
+# Convert a video to a different time scale or FPS.
 def run_convert_video(config):
     with VideoReader(config.video_file) as video_reader:
         frame_count = video_reader.get_frame_count()
@@ -357,16 +372,78 @@ def run_convert_video(config):
                     video_writer.write_numpy(frame)
             print('Finished converting')
         else:
-            print('Input video already satisfies time constraint; no conversion performed.')
+            print('Input video already satisfies time constraint; no conversion performed')
 
 def grab(sct, bbox):
     img = sct.grab(bbox)
     return Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
 
+def sai_version_check(sai_proc):
+    if not sai_proc.is_sai_version_compatible():
+        print('Warning: Capture may not work correctly')
+        res = input('Continue? [y/N]').lower()
+        return res.startswith('y')
+    return True
+
+def select_canvas(sai_proc):
+    while True:
+        canvas_list = sai_proc.get_canvas_list()
+        print('Select a canvas to record (Ctrl+C to cancel):')
+        for i, canvas in zip(range(len(canvas_list)), canvas_list):
+            print(f'[{i + 1}]', canvas.get_name())
+        res = input(f'Enter index [1-{len(canvas_list)}]:')
+        try:
+            res = int(res)
+            canvas = canvas_list[res - 1]
+        except ValueError:
+            print('Could not parse input, trying again')
+        except IndexError:
+            print('Index out of range, trying again')
+        else:
+            return canvas
+
+def is_different_image(a, b):
+    if a is None or b is None:
+        return True
+    return np.any(a != b)
+
+# Capture composite images directly from SAI.
+# Allows continuing capture after stopping and variable frame size.
+async def run_sai_capture_to_frames(config):
+    with (ZipFile(config.frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile,
+            Metadata(zfile) as metadata,
+            sai.SAI() as sai_proc):
+        if not sai_version_check(sai_proc):
+            return
+        canvas = select_canvas(sai_proc)
+        window = get_window_from_pid(sai_proc.get_pid())
+        if window is None:
+            return
+        counter = nth_counter(config.nth_frame)
+        last_img = None
+        async for _ in get_input_tracker_events(window):
+            if not next(counter):
+                continue
+            if not sai_proc.check_if_canvas_exists(canvas):
+                print('Canvas lost, stopping now')
+                return
+            img = sai_proc.get_canvas_image(canvas)
+            if not is_different_image(last_img, img):
+                continue
+            last_img = img
+            img = Image.fromarray(img)
+            img.thumbnail((config.image_size_limit, config.image_size_limit))
+            metadata.update_max_size(img.size)
+            with zfile.open(str(time.time_ns()), 'w') as mfile:
+                img.save(mfile, format='jpeg', quality=95)
+        print('Finished recording')
+
+# Capture a window's rectangular subregion to a zip file to later be converted to video.
+# Allows continuing capture after stopping and variable frame size.
 async def run_capture_to_frames(config):
     with ZipFile(config.frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile, Metadata(zfile) as metadata, mss() as sct:
         window, bbox = get_window_and_bbox(config, metadata)
-        if window == None:
+        if window is None:
             return
         metadata.set_bbox(bbox)
         counter = nth_counter(config.nth_frame)
@@ -380,6 +457,7 @@ async def run_capture_to_frames(config):
                 img.save(mfile, format='jpeg', quality=95)
         print('Finished recording')
 
+# Capture a window's rectangular subregion directly to a video file.
 async def run_capture_to_video(config):
     window, bbox = get_window_and_bbox(config)
     if window is None:
@@ -396,6 +474,7 @@ async def run_capture_to_video(config):
             video_writer.write(img)
         print('Finished recording')
 
+# Capture images from a PSD file after it is written to disk.
 async def run_psd_capture(config):
     with ZipFile(config.frame_data, 'a', zipfile.ZIP_DEFLATED) as zfile, Metadata(zfile) as metadata:
         print(f'Frame data: {config.frame_data}')
@@ -408,12 +487,13 @@ async def run_psd_capture(config):
                     continue
                 else:
                     break
-            img.thumbnail((config.psd_size_limit, config.psd_size_limit))
+            img.thumbnail((config.image_size_limit, config.image_size_limit))
             metadata.update_max_size(img.size)
             with zfile.open(str(time.time_ns()), 'w') as mfile:
                 img.save(mfile, format='jpeg', quality=95)
         print('Finished recording')
 
+# Attempt to hit a save hotkey in a target app when there is a break in activity.
 async def run_auto_save_app(config):
     window, bbox = get_window_and_bbox(config)
     if window is None:
@@ -442,8 +522,9 @@ async def async_main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--frame-data', help='Name of the file to store frames in (zip file).')
     parser.add_argument('--export', action='store_true', help='Export the given frame data file to an MP4.')
+    parser.add_argument('--sai', action='store_true', help='Read SAI\'s memory directly to capture frames. Prompts for canvas selection.')
     parser.add_argument('--psd-file', help='Instead of screen recording, record the specified PSD file every time it is written to.')
-    parser.add_argument('--psd-size-limit', type=int, default=1000, help='Limit the resolution from a recorded PSD file.')
+    parser.add_argument('--image-size-limit', type=int, default=1000, help='Limit the resolution from a PSD or SAI capture.')
     parser.add_argument('--export-time-limit', type=float, default=60, help='Compress the play time of the exported MP4 file to be no longer than the given seconds. Default is 60 seconds. Set to 0 for uncompressed play time.')
     parser.add_argument('--nth-frame', type=int, default=1, help='For screen recording, record only every Nth frame.')
     parser.add_argument('--drag-grab', action='store_true', help='Drag a rectangle over a window to capture that area. Useful for when a subwindow cannot be captured by click.')
@@ -476,6 +557,8 @@ async def async_main():
         else:
             config.video_file = Path(config.video_file)
             run_convert_video(config)
+    elif config.sai:
+        await run_sai_capture_to_frames(config)
     elif config.psd_file is not None:
         config.psd_file = Path(config.psd_file)
         capture_task = asyncio.create_task(run_psd_capture(config))

@@ -12,9 +12,26 @@
     let
       pkgs = nixpkgs.legacyPackages.${system};
       lib = pkgs.lib;
+      pyPkgs = pkgs.python313Packages // {
+        pymemoryeditor = pyPkgs.buildPythonPackage {
+          pname = "pymemoryeditor";
+          version = "1.5.23";
+          src = pkgs.fetchurl {
+            url = "https://files.pythonhosted.org/packages/f9/a3/45b6a5c0fc7148752c2959bbfb4c964fbd2b95d36701e04cb5ca87e2a903/pymemoryeditor-1.5.23-py3-none-any.whl";
+            sha256 = "1kv5kdzwls3p2pspsfylpq1qnazh879yc3qsng1nhqnpy5z9vhax";
+          };
+          format = "wheel";
+          doCheck = false;
+          buildInputs = [];
+          checkInputs = [];
+          nativeBuildInputs = [];
+          propagatedBuildInputs = with pyPkgs; [
+            psutil
+          ];
+        };
+      };
       pyproject = builtins.fromTOML (builtins.readFile ./pyproject.toml);
       project = pyproject.project;
-      pyPkgs = pkgs.python312Packages;
       fixString = x: lib.strings.toLower (builtins.replaceStrings ["_"] ["-"] x);
       getPkgs = x: lib.attrsets.attrVals (builtins.map fixString x) pyPkgs;
       package = pyPkgs.buildPythonPackage {

@@ -8,15 +8,28 @@ Cutting dead air from the videos; Concatenating separate recordings together; Sp
 While it is possible to mitigate these issues when using OBS Studio, I wanted a more accurate solution that works sort of like Clip Studio's timelapse feature.
 By recording the end of each stroke of a drawing, you get the largest amount of information about the timelapse without any redundancy, which can end up creating compact videos with minimal editing.
 
-### Usage
+### Recording
+There are several methods to record with:
+#### SAI memory capture
+- If using `--sai`, the program will read frames directly from the running SAI instance.
+  - It will ask you which opened canvas you want to record.
+  - It will try to automatically find the window of SAI to track clicks, but if it cannot find the window, you will be asked to click on SAI's window instead.
+  - It will only record a new frame if it is different from the last frame, as to prevent clicks on other parts of the program from creating redundant frames.
+#### PSD capture
+- If using `--psd-file <filename>`, a frame will be captured every time the PSD file is finished being written to (such as after saving).
+#### Screen capture
+- The default mode is to capture an area of the screen.
 - When you run the program, it will ask you to click on the window which you want to start capturing.
-  - If using Paint Tool SAI, click inside of the drawing area. If you are using Paint Tool SAI with Wine, you can use the `--drag-grab` option to drag a rectangle area to record.
+  - If using Paint Tool SAI with Windows, click inside of the drawing area to automatically capture that subwindow.
+  - If you are using Paint Tool SAI with Wine, you can use the `--drag-grab` option to drag a rectangle area to record.
+#### Other info
 - The program will only record a new video frame after you have finished a click that had started in the target window/area.
   - Because of this, you may leave the program running indefinitely and not have to worry about pausing recording.
 - Keystrokes will not create new video frames.
+#### Exporting video
 - By default, frames are recorded to a zip file to be processed later (such as if the recorded area changes size). The frame data can take up a lot of space by itself, but the exported video will be fairly small.
 - You can choose to record directly to a video file by specifying a `--video-file <filename>`, but it will only record a single frame size. This can save some storage space. You can run with `--convert` and optionally `--export-time-limit <seconds>` to shrink the previously recorded video down to a shorter time.
-- You can choose to record from a specific PSD file by specifying `--psd-file <filename>`, in which case a frame will be captured every time the PSD file is finished being written to (such as after saving).
+- Recording direct to video is not implemented for `--sai`.
 - You can export from a frame data file with `--export` and specifying the frame data file `--frame-data <filename>`. By default the video will try to be made no longer than 60 seconds, like a timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to let the video time limit be infinite (at 30 FPS).
 
 ### Installation from source
