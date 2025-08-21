@@ -63,6 +63,20 @@ def pad(size):
     pad_index += 1
     return field
 
+def offset_fields(fields):
+    fields = sorted(fields, key=lambda x: x[0])
+    result = []
+    current_offset = 0
+    for offset, name, type in fields:
+        if offset > current_offset:
+            result.append(pad(offset - current_offset))
+            current_offset = offset
+        elif offset < current_offset:
+            raise ValueError(f'field \'{name}\' offset {hex(offset)} is lower than current computed offset {hex(current_offset)}')
+        result.append((name, type))
+        current_offset += ctypes.sizeof(type)
+    return result
+
 # Make a new version of this class for each new SAI version.
 class SAI_API_2024_11_23:
     version_name = 'SAI Ver.2 (64bit) Preview.2024.11.23'
@@ -71,13 +85,11 @@ class SAI_API_2024_11_23:
 
     class SAICanvasTileMap(ctypes.Structure):
         _pack_ = 1
-        _fields_ = [
-            pad(0x8),
-            ('tree', RPOINTER(RPOINTER(RPOINTER(ctypes.c_uint8)))),
-            pad(0x8),
-            ('count_x', ctypes.c_int32),
-            ('count_y', ctypes.c_int32),
-        ]
+        _fields_ = offset_fields([
+            (0x08, 'tree', RPOINTER(RPOINTER(RPOINTER(ctypes.c_uint8)))),
+            (0x18, 'count_x', ctypes.c_int32),
+            (0x1c, 'count_y', ctypes.c_int32),
+        ])
 
     class SAICanvas(ctypes.Structure):
         _pack_ = 1
@@ -85,18 +97,18 @@ class SAI_API_2024_11_23:
         def get_name(self):
             return from_wide_str(self.name)
 
-    SAICanvas._fields_ = [
-            ('next_canvas', RPOINTER(SAICanvas)),
-            pad(0x18),
-            ('id', ctypes.c_int32),
-            pad(0x4),
-            ('tile_map', RPOINTER(RPOINTER(SAICanvasTileMap))), # 0x28
-            pad(0x220),
-            ('width', ctypes.c_int32), # 0x250
-            ('height', ctypes.c_int32), # 0x254
-            pad(0x54),
-            ('name', ctypes.c_uint8 * 0x200) # 0x2ac
-        ]
+        def get_short_path(self):
+            return from_wide_str(self.short_path)
+
+    SAICanvas._fields_ = offset_fields([
+            (0x000, 'next_canvas', RPOINTER(SAICanvas)),
+            (0x020, 'id', ctypes.c_int32),
+            (0x028, 'tile_map', RPOINTER(RPOINTER(SAICanvasTileMap))),
+            (0x250, 'width', ctypes.c_int32),
+            (0x254, 'height', ctypes.c_int32),
+            (0x2ac, 'name', ctypes.c_uint16 * 0x100),
+            (0x4ac, 'short_path', ctypes.c_uint16 * 0x100)
+        ])
 add_api_lookup(SAI_API_2024_11_23)
 
 class SAI():

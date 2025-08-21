@@ -391,7 +391,7 @@ def select_canvas(sai_proc):
         canvas_list = sai_proc.get_canvas_list()
         print('Select a canvas to record (Ctrl+C to cancel):')
         for i, canvas in zip(range(len(canvas_list)), canvas_list):
-            print(f'[{i + 1}]', canvas.get_name())
+            print(f'[{i + 1}] {canvas.get_name()} ({canvas.get_short_path()})')
         res = input(f'Enter index [1-{len(canvas_list)}]:')
         try:
             res = int(res)
