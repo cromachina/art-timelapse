@@ -339,6 +339,7 @@ def run_export(config):
     with ZipFile(config.frame_data, 'r') as zfile, Metadata(zfile) as metadata:
         frames = zfile.namelist()
         frames.sort()
+        frames.insert(0, frames[-1])
         frame_count = len(frames)
         video_file = Path(config.frame_data).with_suffix('.mp4')
         print(f'Exporting {video_file}')
