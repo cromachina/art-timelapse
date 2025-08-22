@@ -36,14 +36,6 @@ def nth_counter(nth):
             counter -= 1
             yield False
 
-def get_nth_frame(config, frame_count):
-    nth_frame = 1
-    if config.export_time_limit > 0:
-        target_frames = config.export_time_limit * float(config.fps)
-        if frame_count > target_frames:
-            nth_frame = np.floor(frame_count / target_frames)
-    return nth_frame
-
 def set_rect_params(rect, width, height, alpha):
     rect.overrideredirect(1)
     rect.geometry(f'{width}x{height}+0+0')
@@ -237,10 +229,10 @@ class VideoReader():
         return self.video_reader.read()
 
     def get_frame_count(self):
-        return self.video_reader.get(cv2.CAP_PROP_FRAME_COUNT)
+        return int(self.video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
 
     def get_size(self):
-        return self.video_reader.get(cv2.CAP_PROP_FRAME_WIDTH), self.video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        return int(self.video_reader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 class InputTracker():
     def __init__(self, target_window, bbox=None):
@@ -334,20 +326,26 @@ async def get_file_tracker_events(target_file):
         except asyncio.CancelledError:
             print(f'Stopped watching file for changes: {target_file}')
 
+def filter_frames(config, frames):
+    if config.export_time_limit > 0:
+        frame_count = len(frames)
+        target_frames = int(config.export_time_limit * config.fps)
+        if frame_count > target_frames:
+            nth = frame_count / target_frames
+            return [frames[round(i * nth)] for i in range(target_frames)]
+    return frames
+
 # Export frames captured to a zip file to video.
 def run_export(config):
     with ZipFile(config.frame_data, 'r') as zfile, Metadata(zfile) as metadata:
         frames = zfile.namelist()
         frames.sort()
         frames.insert(0, frames[-1])
-        frame_count = len(frames)
+        frames = filter_frames(config, frames)
         video_file = Path(config.frame_data).with_suffix('.mp4')
         print(f'Exporting {video_file}')
-        counter = nth_counter(get_nth_frame(config, frame_count))
         with VideoWriter(video_file, config.fps, metadata.get_max_size()) as video_writer:
             for frame in tqdm.tqdm(frames, unit='frames'):
-                if not next(counter):
-                    continue
                 with zfile.open(frame, 'r') as mfile:
                     img = Image.open(mfile)
                     video_writer.write(img)
@@ -357,23 +355,20 @@ def run_export(config):
 def run_convert_video(config):
     with VideoReader(config.video_file) as video_reader:
         frame_count = video_reader.get_frame_count()
-        nth_frame = get_nth_frame(config, frame_count)
-        if nth_frame > 1:
-            short_name = config.video_file.with_stem(config.video_file.stem + '-short')
-            print(f'Converting to {short_name}')
-            counter = nth_counter(nth_frame)
-            with VideoWriter(short_name, config.fps, video_reader.get_size()) as video_writer, tqdm.tqdm(total=frame_count, unit='frames') as prog:
-                while True:
-                    ret, frame = video_reader.read()
-                    prog.update(1)
-                    if ret == False:
-                        break
-                    if not next(counter):
-                        continue
-                    video_writer.write_numpy(frame)
-            print('Finished converting')
-        else:
-            print('Input video already satisfies time constraint; no conversion performed')
+        frames = list(range(frame_count))
+        frames = filter_frames(config, frames)
+        index = 0
+        short_name = config.video_file.with_stem(config.video_file.stem + '-short')
+        print(f'Converting to {short_name}')
+        with VideoWriter(short_name, config.fps, video_reader.get_size()) as video_writer:
+            for frame in tqdm.tqdm(frames, unit='frames'):
+                while index < frame:
+                    video_reader.read()
+                    index += 1
+                ret, data = video_reader.read()
+                index += 1
+                video_writer.write_numpy(data)
+        print('Finished converting')
 
 def grab(sct, bbox):
     img = sct.grab(bbox)
