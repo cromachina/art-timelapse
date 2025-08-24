@@ -138,6 +138,16 @@ def get_window_and_bbox(config, metadata=None):
     else:
         return get_window_from_click(), None
 
+def get_root_window(window):
+    pid = window.getPID()
+    windows = { w.getHandle(): w for w in pywinctl.getAllWindows() if w.getPID() == pid }
+    while True:
+        phandle = window.getParent()
+        if phandle in windows:
+            window = windows[phandle]
+        else:
+            return window
+
 def get_window_from_pid(pid):
     result = None
     for window in pywinctl.getAllWindows():
@@ -146,6 +156,8 @@ def get_window_from_pid(pid):
     if result is None:
         print('Could not find window automatically')
         result = get_window_from_click()
+    if result is not None:
+        result = get_root_window(result)
     return result
 
 class Metadata:
@@ -384,6 +396,9 @@ def sai_version_check(sai_proc):
 def select_canvas(sai_proc):
     while True:
         canvas_list = sai_proc.get_canvas_list()
+        if len(canvas_list) == 0:
+            print('No open canvases detected.')
+            return None
         print('Select a canvas to record (Ctrl+C to cancel):')
         for i, canvas in zip(range(len(canvas_list)), canvas_list):
             print(f'[{i + 1}] {canvas.get_name()} ({canvas.get_short_path()})')
@@ -412,21 +427,23 @@ async def run_sai_capture_to_frames(config):
         if not sai_version_check(sai_proc):
             return
         canvas = select_canvas(sai_proc)
+        if canvas is None:
+            return
         window = get_window_from_pid(sai_proc.get_pid())
         if window is None:
             return
         counter = nth_counter(config.nth_frame)
         last_img = None
         async for _ in get_input_tracker_events(window):
-            if not next(counter):
-                continue
             if not sai_proc.check_if_canvas_exists(canvas):
                 print('Canvas lost, stopping now')
-                return
+                break
             img = sai_proc.get_canvas_image(canvas)
             if not is_different_image(last_img, img):
                 continue
             last_img = img
+            if not next(counter):
+                continue
             img = Image.fromarray(img)
             img.thumbnail((config.image_size_limit, config.image_size_limit))
             metadata.update_max_size(img.size)
