@@ -202,8 +202,8 @@ add_sai_api(SAIv1_API_1_2_5)
 
 class SAIv1_API_1_2_6_Beta_3(SAIv1_API_1_2_5):
     version_name = 'SAI Ver.1.2.6-Beta.3 (32bit)'
-    exe_hash = ''
-    session_offset = 0x000000
+    exe_hash = 'b693f2c4516c09d008e30827208be1e6'
+    session_offset = 0x494bcc
 add_sai_api(SAIv1_API_1_2_6_Beta_3)
 
 class SAIv2_API_Base(SAI_API_Base):
