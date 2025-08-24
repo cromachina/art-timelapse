@@ -66,13 +66,6 @@ if 'win' in sys.platform:
     psapi = ctypes.WinDLL('Psapi.dll')
     k32 = ctypes.windll.kernel32
 
-    class MODULEINFO(ctypes.Structure):
-        _fields_ = [
-            ('lpBaseOfDll', wintypes.LPVOID),
-            ('SizeOfImage', wintypes.DWORD),
-            ('EntryPoint', wintypes.LPVOID),
-        ]
-
     def get_base_address(pid):
         PROCESS_ALL_ACCESS = 0x1f0fff
         process_handle = k32.OpenProcess(
@@ -89,7 +82,6 @@ if 'win' in sys.platform:
             ctypes.byref(ctypes.c_ulong()),
             LIST_MODULES_ALL
         )
-        module_info = MODULEINFO()
         k32.CloseHandle(process_handle)
         return modules[0]
 
