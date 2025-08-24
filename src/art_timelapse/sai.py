@@ -62,7 +62,6 @@ def RPOINTER(dtype):
     return _RPOINTER(dtype, RemotePointer64)
 
 if 'win' in sys.platform:
-    from ctypes import wintypes
     psapi = ctypes.WinDLL('Psapi.dll')
     k32 = ctypes.windll.kernel32
 
