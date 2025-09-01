@@ -414,9 +414,7 @@ def select_canvas(sai_proc):
             return canvas
 
 def is_different_image(a, b):
-    if a is None or b is None:
-        return True
-    return np.any(a != b)
+    return (a is None or b is None) or (a.shape != b.shape) or (np.any(a != b))
 
 # Capture composite images directly from SAI.
 # Allows continuing capture after stopping and variable frame size.

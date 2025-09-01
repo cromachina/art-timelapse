@@ -129,6 +129,9 @@ class SAI_API_Base():
             canvas_ptr = canvas.next_canvas
         return result
 
+    def get_updated_canvas(self, canvas):
+        return canvas._self_ptr[self.proc]
+
 class SAIv1_API_Base(SAI_API_Base):
     process_name = 'sai.exe'
 
@@ -140,6 +143,7 @@ class SAIv1_API_Base(SAI_API_Base):
         return any((c._self_ptr == canvas._self_ptr for c in self.get_canvas_list()))
 
     def get_canvas_image(self, canvas):
+        canvas = self.get_updated_canvas(canvas)
         lower_pad_x = canvas.lower_pad_x
         lower_pad_y = canvas.lower_pad_y
         pixel_heap = canvas.pixel_heap_level_1[self.proc]
@@ -208,6 +212,7 @@ class SAIv2_API_Base(SAI_API_Base):
         return any((c.id == canvas.id for c in self.get_canvas_list()))
 
     def get_canvas_image(self, canvas):
+        canvas = self.get_updated_canvas(canvas)
         tile_map = canvas.tile_map[self.proc][self.proc]
         tiles_y = tile_map.count_y
         tiles_x = tile_map.count_x
