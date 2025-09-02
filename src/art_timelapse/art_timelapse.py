@@ -442,10 +442,11 @@ async def run_sai_capture_to_frames(config):
             last_img = img
             if not next(counter):
                 continue
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(img)
             img.thumbnail((config.image_size_limit, config.image_size_limit))
             metadata.update_max_size(img.size)
-            with zfile.open(str(time.time_ns()), 'w') as mfile:
+            with zfile.open(f'{time.time_ns()}.jpg', 'w') as mfile:
                 img.save(mfile, format='jpeg', quality=95)
         print('Finished recording')
 
