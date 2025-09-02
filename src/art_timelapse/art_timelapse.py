@@ -505,30 +505,6 @@ async def run_psd_capture(config):
                 img.save(mfile, format='jpeg', quality=95)
         print('Finished recording')
 
-# Attempt to hit a save hotkey in a target app when there is a break in activity.
-async def run_auto_save_app(config):
-    window, bbox = get_window_and_bbox(config)
-    if window is None:
-        return
-    if bbox is None:
-        bbox = window.bbox
-    keyboard = pynput.keyboard.Controller()
-    save_task = None
-    async def save():
-        while not window.isActive:
-            await asyncio.sleep(0.1)
-        keyboard.type(config.save_key)
-    async def delay_save():
-        nonlocal save_task
-        await asyncio.sleep(config.save_delay)
-        save_task = asyncio.create_task(save())
-    delay_task = None
-    async for _ in get_input_tracker_events(window, bbox):
-        if save_task is not None:
-            await save_task
-        if delay_task is not None:
-            delay_task.cancel()
-        delay_task = asyncio.create_task(delay_save())
 
 async def async_main():
     parser = argparse.ArgumentParser()
@@ -544,9 +520,6 @@ async def async_main():
     parser.add_argument('--video-file', help='Video file output for recording directly to video (not used by export).')
     parser.add_argument('--convert', action='store_true', help='Convert a video-file to a time compressed shorter video within the given export-time-limit. This is useful when using video-file only output.')
     parser.add_argument('--fps', type=int, default=30, help='FPS of an exported video.')
-    parser.add_argument('--auto-save-app', action='store_true', help='Attempt to auto save the target program by sending it the configured save key when it\'s focused.')
-    parser.add_argument('--save-delay', type=float, default=1, help='Delay after an action is made before auto-saving target program for PSD recording.')
-    parser.add_argument('--save-key', type=str, default='o', help='Hotkey used to save target program.')
     config = parser.parse_args()
     no_frame_data = config.frame_data is None
     if no_frame_data:
@@ -573,11 +546,7 @@ async def async_main():
         await run_sai_capture_to_frames(config)
     elif config.psd_file is not None:
         config.psd_file = Path(config.psd_file)
-        capture_task = asyncio.create_task(run_psd_capture(config))
-        if config.auto_save_app:
-            await run_auto_save_app(config)
-            capture_task.cancel()
-        await capture_task
+        await run_psd_capture(config)
     elif config.video_file is not None:
         config.video_file = Path(config.video_file).with_suffix('.mp4')
         await run_capture_to_video(config)
