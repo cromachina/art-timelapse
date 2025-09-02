@@ -9,12 +9,14 @@ While it is possible to mitigate these issues when using OBS Studio, I wanted a 
 By recording the end of each stroke of a drawing, you get the largest amount of information about the timelapse without any redundancy, which can end up creating compact videos with minimal editing.
 
 ### Recording
-There are several methods to record with:
+- The program will only record a new video frame after you have finished a click that had started in the target window/area.
+  - Because of this, you may leave the program running indefinitely and not have to worry about pausing recording.
+- Keystrokes will not create new video frames.
 #### SAI memory capture
 - If using `--sai`, the program will read frames directly from the running SAI instance.
-  - It will ask you which opened canvas you want to record.
-  - It will try to automatically find the window of SAI to track clicks, but if it cannot find the window, you will be asked to click on SAI's window instead.
-  - It will only record a new frame if it is different from the last frame, as to prevent clicks on other parts of the program from creating redundant frames.
+- It will ask you which opened canvas you want to record.
+- It will try to automatically find the window of SAI to track clicks, but if it cannot find the window, you will be asked to click on SAI's window instead.
+- It will only record a new frame if it is different from the last frame, as to prevent clicks on other parts of the program from creating redundant frames.
 #### PSD capture
 - If using `--psd-file <filename>`, a frame will be captured every time the PSD file is finished being written to (such as after saving).
 #### Screen capture
@@ -22,15 +24,39 @@ There are several methods to record with:
 - When you run the program, it will ask you to click on the window which you want to start capturing.
   - If using Paint Tool SAI with Windows, click inside of the drawing area to automatically capture that subwindow.
   - If you are using Paint Tool SAI with Wine, you can use the `--drag-grab` option to drag a rectangle area to record.
-#### Other info
-- The program will only record a new video frame after you have finished a click that had started in the target window/area.
-  - Because of this, you may leave the program running indefinitely and not have to worry about pausing recording.
-- Keystrokes will not create new video frames.
 #### Exporting video
-- By default, frames are recorded to a zip file to be processed later (such as if the recorded area changes size). The frame data can take up a lot of space by itself, but the exported video will be fairly small.
-- You can choose to record directly to a video file by specifying a `--video-file <filename>`, but it will only record a single frame size. This can save some storage space. You can run with `--convert` and optionally `--export-time-limit <seconds>` to shrink the previously recorded video down to a shorter time.
-- Recording direct to video is not implemented for `--sai`.
-- You can export from a frame data file with `--export` and specifying the frame data file `--frame-data <filename>`. By default the video will try to be made no longer than 60 seconds, like a timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to let the video time limit be infinite (at 30 FPS).
+- By default, frames are recorded to a zip file to be processed later. The frame data can take up a lot of space by itself, but the exported video will be fairly small.
+- You can instead record to videos by specifying `--video`. If the resulting image size to be stored changes, it will automatically cut a new video. Overall, this can save a lot more storage space than the zip file, but it needs FFPMEG to work.
+- You can export the saved frame data with `--export` and specifying the frame data file `--frames <filename>`. By default the video will try to be made no longer than 60 seconds, like a typical timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to have no limit on the export length. If the frame data is a directory, such as when previously using `--video`, it will instead concatenate the videos in the directory together, compressed to the appropriate length.
+
+### Examples
+Record from SAI's memory directly and put the outputs as MP4s into a directory called `output`:
+```
+art-timelapse --sai --frames output --video
+```
+Interactive setup:
+```
+Press Ctrl+C here to stop at any time
+Opening frames: output
+Select a canvas to record (Ctrl+C to cancel):
+[1] 20250821.sai2 (F:\home\cro\aux\art\20250821.sai2)
+[2] NewCanvas3 ()
+Enter index [1-2]:2
+Could not find window automatically
+Click on a subwindow to start recording. Right click to cancel.
+Tracking input for window: Default - Wine desktop
+```
+Finishing recording (pressed Ctrl+C):
+```
+^CClosing frames: output
+```
+Exporting resulting output, you do not have to specify `--video`. The export type is inferred from the `--frames` path:
+```
+art-timelapse --sai --frames output --export
+Press Ctrl+C here to stop at any time
+Opening frames: output
+100%|████████████████████████████████| 23/23 [00:00<00:00, 116.19frames/s]
+```
 
 ### Installation from source
 - Install python: https://www.python.org/downloads/
