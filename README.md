@@ -8,69 +8,89 @@ Cutting dead air from the videos; Concatenating separate recordings together; Sp
 While it is possible to mitigate these issues when using OBS Studio, I wanted a more accurate solution that works sort of like Clip Studio's timelapse feature.
 By recording the end of each stroke of a drawing, you get the largest amount of information about the timelapse without any redundancy, which can end up creating compact videos with minimal editing.
 
-### Recording
+### Recording and exporting
 - The program will only record a new video frame after you have finished a click that had started in the target window/area.
   - Because of this, you may leave the program running indefinitely and not have to worry about pausing recording.
-- Keystrokes will not create new video frames.
+  - You do have to stop recording when done so that the last video or zip file is closed.
+  - Keystrokes will not create new video frames.
+- Specify `--frames <filename>` without an extension to write recorded data to a directory (or zip file). If not specified, it will use a timestamp as the file name.
+- By default, frames are recorded to one or more videos to be processed later. When the size of the captured image changes, a new video is cut (usually because most video formats cannot have variable size).
+- The default video storage format is `webm` with `vp80` codec to have better color preservation (compared to `mp4`).
+  - You may see a warning that `vp80` is not supported for `webm`. This appears to be a bug in OpenCV that you can ignore.
+- You can specify a custom `--container <suffix>` and fourcc `--codec <fourcc>` when recording or exporting, whatever is supported by OpenCV and FFMPEG, for example `--container mp4 --codec mp4v`.
+  - Incompatible containers and codecs will display errors and might not produce any resulting video file.
+- If you specify `--web`, the `container` and `codec` are set to `mp4` and `avc1` respectively. This format is accepted by many websites for upload, but it can reduce color quality. This is best used when exporting (with `--export`). If you really need to save disk space, then recording with `--web` will be very efficient.
+- You can also record JPEGs to a zip file with `--zip` but I don't recommend this because it takes up a lot of space. This is how the program originally worked.
+- You can export the saved frame data with `--export`. By default the video will try to be made no longer than 60 seconds, like a typical timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to have no limit on the export length. If the frame data is a directory, such as when previously using `--video`, it will instead concatenate the videos in the directory together, compressed to the appropriate length.
+
+| Format | Quality | Size (relative to MP4) | Estimated size (~25k 1000px frames recorded) |
+|--|--|--|--|
+| mp4 (avc1) | Some colors will look off from the original | 1x | 15 MB |
+| webm (vp80) | Colors look more accurate | 10x | 150 MB |
+| Zip file of JPEGs | High color accuracy | 100x-1000x | 1.5 GB |
+
 #### SAI memory capture
 - If using `--sai`, the program will read frames directly from the running SAI instance.
 - It will ask you which opened canvas you want to record.
 - It will try to automatically find the window of SAI to track clicks, but if it cannot find the window, you will be asked to click on SAI's window instead.
 - It will only record a new frame if it is different from the last frame, as to prevent clicks on other parts of the program from creating redundant frames.
+- This mode will not work natively on MacOS because PyMemoryEditor does not have a MacOS implementation. You might be able to run this program in Wine on MacOS to get around this.
+- I think that this mode provides the best looking timelapse for SAI.
 #### PSD capture
 - If using `--psd-file <filename>`, a frame will be captured every time the PSD file is finished being written to (such as after saving).
+- This mode will make a choppy looking timelapse, depending on how frequently you save your work, but the effect isn't terrible.
 #### Screen capture
-- The default mode is to capture an area of the screen.
+- This is the default behavior of the program, which is to capture an area of the screen.
 - When you run the program, it will ask you to click on the window which you want to start capturing.
   - If using Paint Tool SAI with Windows, click inside of the drawing area to automatically capture that subwindow.
-  - If you are using Paint Tool SAI with Wine, you can use the `--drag-grab` option to drag a rectangle area to record.
-#### Exporting video
-- By default, frames are recorded to a zip file to be processed later. The frame data can take up a lot of space by itself, but the exported video will be fairly small.
-- You can instead record to videos by specifying `--video`. If the resulting image size to be stored changes, it will automatically cut a new video. Overall, this can save a lot more storage space than the zip file, but it needs FFPMEG to work.
-- You can export the saved frame data with `--export` and specifying the frame data file `--frames <filename>`. By default the video will try to be made no longer than 60 seconds, like a typical timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to have no limit on the export length. If the frame data is a directory, such as when previously using `--video`, it will instead concatenate the videos in the directory together, compressed to the appropriate length.
+  - If you are using Paint Tool SAI with Wine, you can use the `--drag-grab` option to drag a rectangular area to record.
+- This mode will make a timelapse that looks like a screen recording with software like OBS. Depending on how short you compress the timelapse to, this can look somewhat disorienting, particularly if you zoom or rotate a lot.
 
 ### Examples
-Record from SAI's memory directly and put the outputs as MP4s into a directory called `output`:
+Record from SAI's memory directly and store the outputs into a directory called `test`:
 ```
-art-timelapse --sai --frames output --video
+art-timelapse --frames test --sai
 ```
 Interactive setup:
 ```
 Press Ctrl+C here to stop at any time
-Opening frames: output
+Writing to frames folder: test; container webm; codec vp80
 Select a canvas to record (Ctrl+C to cancel):
-[1] 20250821.sai2 (F:\home\cro\aux\art\20250821.sai2)
-[2] NewCanvas3 ()
+[1] NewCanvas16 ()
+[2] NewCanvas17 ()
 Enter index [1-2]:2
 Could not find window automatically
 Click on a subwindow to start recording. Right click to cancel.
 Tracking input for window: Default - Wine desktop
+OpenCV: FFMPEG: tag 0x30387076/'vp80' is not supported with codec id 139 and format 'webm / WebM'
+^C
 ```
-Finishing recording (pressed Ctrl+C):
+Finishing recording (pressed Ctrl+C).
+
+The export type is inferred from the `--frames` path:
 ```
-^CClosing frames: output
+art-timelapse --frames test --sai --export --web
 ```
-Exporting resulting output, you do not have to specify `--video`. The export type is inferred from the `--frames` path:
+Output:
 ```
-art-timelapse --sai --frames output --export
 Press Ctrl+C here to stop at any time
-Opening frames: output
-100%|████████████████████████████████| 23/23 [00:00<00:00, 116.19frames/s]
+Reading from frames folder: test
+Writing to video: test.mp4 (avc1)
+100%|████████████████████████████| 26/26 [00:00<00:00, 184.61frames/s]
 ```
 
 ### Installation from source
 - Install python: https://www.python.org/downloads/
 - Install project: `pip install -e .`
 - See arguments with: `art-timelapse --help`
-- If exporting doesn't work, you may also need to install ffmpeg: https://www.gyan.dev/ffmpeg/builds/#release-builds
-  - You can add the bin directory to your path, or copy ffmpeg.exe to the script folder.
+- If recording and exporting doesn't work, you may also need to install ffmpeg: https://www.gyan.dev/ffmpeg/builds/#release-builds
+  - You can add the `bin` directory to your system path, or copy `ffmpeg.exe` to the script folder.
 
 ### Building/installing with Nix
-- This project is a Nix flake, so you can run flake commands to interact with the package `nix run`, `nix build`, etc.
+- This project is a Nix flake, so you can run flake commands to interact with the package `nix run`, `nix build`, `nix develop`, etc. or add it to your main configuration.
 
 ### Prebuilt executable
 - You can find a built exe in the releases page instead of going through the installation, although it may still depend on ffmpeg: https://github.com/cromachina/art-timelapse/releases
-- I haven't tested these on their respective platforms. They may have issues loading Tk.
 
 https://github.com/cromachina/art-timelapse/assets/82557197/3e10a9d4-d855-4e91-8070-8f21aa9c350c
 

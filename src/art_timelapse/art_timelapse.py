@@ -200,9 +200,12 @@ class Metadata:
 
 # Handles output to a video file.
 class VideoWriter:
-    def __init__(self, file_path, size):
+    def __init__(self, file_path, size, container, codec, log=False):
         self.size = even_size(size)
-        self.writer = cv2.VideoWriter(str(file_path), cv2.VideoWriter.fourcc(*'avc1'), FPS, self.size)
+        self.file_path = file_path.with_suffix(f'.{container}')
+        if log:
+            print(f'Writing to video: {self.file_path} ({codec})')
+        self.writer = cv2.VideoWriter(str(self.file_path), cv2.VideoWriter.fourcc(*codec), FPS, self.size)
 
     def __enter__(self):
         return self
@@ -250,10 +253,10 @@ class VideoReader:
 
 # Handle writing frames to a zipfile with metadata.
 class ZipfileFramesWriter:
-    def __init__(self, filename):
-        filename = filename.with_suffix('.zip')
+    def __init__(self, frames, **_):
+        filename = frames.with_suffix('.zip')
         filename.parent.mkdir(parents=True, exist_ok=True)
-        print(f'Opening frames: {filename}')
+        print(f'Writing to frames zip: {filename}')
         self.zfile = ZipFile(filename, 'a', zipfile.ZIP_DEFLATED)
         self.metadata = Metadata(self.zfile)
 
@@ -266,7 +269,7 @@ class ZipfileFramesWriter:
     def close(self):
         self.metadata.save()
         self.zfile.close()
-        print(f'Closing frames: {self.zfile.filename}')
+        print(f'Closing frames zip: {self.zfile.filename}')
 
     def write(self, img):
         self.metadata.update_max_size(img.size)
@@ -275,9 +278,11 @@ class ZipfileFramesWriter:
 
 # Automatically open and close video writers if the input images change size.
 class VideoSequenceWriter:
-    def __init__(self, folder):
-        self.folder = Path(folder)
-        print(f'Opening frames: {self.folder}')
+    def __init__(self, frames, container, codec, **_):
+        self.container = container
+        self.codec = codec
+        self.folder = Path(frames)
+        print(f'Writing to frames folder: {self.folder}; container: {container}; codec: {codec}')
         self.folder.mkdir(parents=True, exist_ok=True)
         self.writer = None
 
@@ -290,10 +295,9 @@ class VideoSequenceWriter:
     def close(self):
         if self.writer is not None:
             self.writer.close()
-        print(f'Closing frames: {self.folder}')
 
     def open_new(self, size):
-        self.writer = VideoWriter(self.folder / f'{time.time_ns()}.mp4', size)
+        self.writer = VideoWriter(self.folder / f'{time.time_ns()}', size, self.container, self.codec)
 
     def check_new(self, size):
         if self.writer is None:
@@ -310,13 +314,13 @@ class VideoSequenceWriter:
 class VideoSequenceReader:
     def __init__(self, folder):
         self.folder = Path(folder)
-        print(f'Opening frames: {self.folder}')
+        print(f'Reading from frames folder: {self.folder}')
         self.reader = None
         self.frame_count = 0
         self.size = (0, 0)
         self.files = []
         self.file_index = 0
-        for file in sorted(self.folder.glob('*.mp4')):
+        for file in sorted(self.folder.glob('*')):
             reader = VideoReader(file)
             sub_frame_count = reader.get_frame_count()
             if sub_frame_count > 0:
@@ -460,25 +464,29 @@ def filter_frames(config, frames):
 
 # Pick the appropriate export type based on the target frames path.
 def run_export(config):
-    if config.frames.is_file():
+    path = Path(config.frames)
+    zip_path = path.with_suffix('.zip')
+    if zip_path.exists() and zip_path.is_file():
         run_export_from_zip(config)
-    else:
+    elif path.exists() and path.is_dir():
         run_export_from_video_dir(config)
+    else:
+        raise Exception(f'No appropriate frame data found for {config.frames}')
 
 # Export frames captured to a zip file to video.
 def run_export_from_zip(config):
-    with ZipFile(config.frames, 'r') as zfile, Metadata(zfile) as metadata:
+    path = Path(config.frames).with_suffix('.zip')
+    with ZipFile(path, 'r') as zfile, Metadata(zfile) as metadata:
         frames = sorted(zfile.namelist())
+        if len(frames) == 0:
+            return
         frames.insert(0, frames[-1])
         frames = filter_frames(config, frames)
-        video = Path(config.frames).with_suffix('.mp4')
-        print(f'Exporting {video}')
-        with VideoWriter(video, metadata.get_max_size()) as writer:
+        with VideoWriter(config.frames, metadata.get_max_size(), config.container, config.codec, log=True) as writer:
             for frame in tqdm.tqdm(frames, unit='frames'):
                 with zfile.open(frame, 'r') as mfile:
                     img = Image.open(mfile)
                     writer.write(img)
-        print('Finished exporting')
 
 # Concatenate videos captured to a folder.
 def run_export_from_video_dir(config):
@@ -489,8 +497,7 @@ def run_export_from_video_dir(config):
         frames = list(range(reader.frame_count))
         frames = filter_frames(config, frames)
         index = 0
-        video = Path(config.frames).with_suffix('.mp4')
-        with VideoWriter(video, reader.size) as writer:
+        with VideoWriter(config.frames, reader.size, config.container, config.codec, log=True) as writer:
             writer.write(last_frame, False)
             for frame in tqdm.tqdm(frames, unit='frames'):
                 while index < frame:
@@ -536,12 +543,15 @@ def is_different_image(a, b):
     return (a is None or b is None) or (a.shape != b.shape) or (np.any(a != b))
 
 def get_writer(config):
-    return VideoSequenceWriter if config.video else ZipfileFramesWriter
+    if config.zip:
+        writer = ZipfileFramesWriter
+    else:
+        writer = VideoSequenceWriter
+    return writer(**vars(config))
 
 # Capture images directly from SAI.
 async def run_sai_capture(config):
-    output = get_writer(config)
-    with output(config.frames) as writer, sai.SAI() as sai_proc:
+    with get_writer(config) as writer, sai.SAI() as sai_proc:
         if not sai_version_check(sai_proc):
             return
         canvas = select_canvas(sai_proc)
@@ -566,8 +576,7 @@ async def run_sai_capture(config):
 
 # Capture a window's rectangular subregion or subwindow.
 async def run_screen_capture(config):
-    output = get_writer(config)
-    with output(config.frames) as writer, mss() as sct:
+    with get_writer(config) as writer, mss() as sct:
         window, bbox = get_window_and_bbox(config)
         if window is None:
             return
@@ -579,8 +588,7 @@ async def run_screen_capture(config):
 
 # Capture images from a PSD file after it is written to disk.
 async def run_psd_capture(config):
-    output = get_writer(config)
-    with output(config.frames) as writer:
+    with get_writer(config) as writer:
         async for _ in FileTracker(config.psd_file).get_event_stream():
             while True:
                 try:
@@ -596,14 +604,20 @@ async def run_psd_capture(config):
 async def async_main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--frames', help='Name of the file or directory to store frames or videos.')
-    parser.add_argument('--video', action='store_true', help='If outputting to a video directory instead of a zip file of frames.')
-    parser.add_argument('--export', action='store_true', help='Export the given frame data file to an MP4, or concatenate a video directory. Figures out what to do based on the frames path.')
     parser.add_argument('--sai', action='store_true', help='Read SAI\'s memory directly to capture frames. Prompts for canvas selection.')
     parser.add_argument('--psd-file', help='Instead of screen recording, record the specified PSD file every time it is written to.')
     parser.add_argument('--image-size-limit', type=int, default=1000, help='Limit the resolution from a PSD or SAI capture.')
+    parser.add_argument('--export', action='store_true', help='Export the given frame data file to an MP4, or concatenate a video directory. Figures out what to do based on the frames path.')
     parser.add_argument('--export-time-limit', type=float, default=60, help='Compress the play time of the exported MP4 file to be no longer than the given seconds. Default is 60 seconds. Set to 0 for uncompressed play time.')
     parser.add_argument('--drag-grab', action='store_true', help='Drag a rectangle over a window to capture that area. Useful for when a subwindow cannot be captured by click.')
+    parser.add_argument('--container', default='webm', help='The format to store video in, for example "webm", "mp4", "avi". Default for storage is webm with VP8 codec for better color quality, but it takes up more space than mp4 with avc1.')
+    parser.add_argument('--codec', default='vp80', help='The fourcc for the video container\'s codec. Default for storage is VP8 (vp80).')
+    parser.add_argument('--web', action='store_true', help='Sets the video container and codec to "mp4" and "avc1" respectively, which is what Twitter and many other websites expect for video uploads. Use this with --export.')
+    parser.add_argument('--zip', action='store_true', help='If outputting to a zip file of JPEGs instead of a folder of videos.')
     config = parser.parse_args()
+    if config.web:
+        config.container = 'mp4'
+        config.codec = 'avc1'
     no_frames = config.frames is None
     if no_frames:
         if config.psd_file is not None:
