@@ -580,7 +580,7 @@ async def run_screen_capture(config):
         window, bbox = get_window_and_bbox(config)
         if window is None:
             return
-        if output is VideoSequenceWriter and bbox is None:
+        if isinstance(writer, VideoSequenceWriter) and bbox is None:
             bbox = window.bbox
         async for _ in InputTracker(window, bbox).get_event_stream():
             img = grab(sct, bbox)
