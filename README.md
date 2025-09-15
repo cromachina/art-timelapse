@@ -79,18 +79,40 @@ Writing to video: test.mp4 (avc1)
 100%|████████████████████████████| 26/26 [00:00<00:00, 184.61frames/s]
 ```
 
-### Installation from source
-- Install python: https://www.python.org/downloads/
-- Install project: `pip install -e .`
+### Windows prebuilt executable
+You can find prebuilt executables in the releases page instead of going through the source installation https://github.com/cromachina/art-timelapse/releases. It may still depend on ffmpeg (https://ffmpeg.org/download.html) being installed separately and added to the exe directory. One caveat of using the prebuilt pyinstaller executable is that it has a pretty slow startup time.
+
+### Installing from source on Windows
+- Download the source to some location.
+- Install python: https://www.python.org/downloads/ (add to your system PATH)
+- Install ffmpeg: https://ffmpeg.org/download.html
+- In the source directory, create a virtual environment: `python -m venv --system-site-packages venv`
+- Activate the virtual environment: `venv/bin/activate.bat`
+- Install the project: `pip install -e .`
+- `art-timelapse` is now available in the current shell. You have to reactivate the venv if you open a new shell.
 - See arguments with: `art-timelapse --help`
-- If recording and exporting doesn't work, you may also need to install ffmpeg: https://www.gyan.dev/ffmpeg/builds/#release-builds
-  - You can add the `bin` directory to your system path, or copy `ffmpeg.exe` to the script folder.
+- This can be done similarly on Linux and MacOS, but you should use the Nix method instead.
 
-### Building/installing with Nix
-- This project is a Nix flake, so you can run flake commands to interact with the package `nix run`, `nix build`, `nix develop`, etc. or add it to your main configuration.
+### Installing with Nix on Ubuntu (or other Linux distros)
+- Initial nix setup:
+  - Install nix: `sudo apt install nix-bin`
+  - Add yourself to the `nix-users` group: ``sudo usermod -a -G nix-users `whoami` ``
+  - Refresh the group for your session: `newgrp nix-users`
+  - Update `nix.conf` so you can use flakes:
+    - `echo "extra-experimental-features = nix-command flakes" | sudo tee -a /etc/nix/nix.conf`
+- Run: `nix run github:cromachina/art-timelapse -- --help`
+- Run a specific version: `nix run github:cromachina/art-timelapse/v1.3.1 -- --help`
+- Optional: Consider using `system-manager` if you want to install in a persistent config file: https://github.com/numtide/system-manager
 
-### Prebuilt executable
-- You can find a built exe in the releases page instead of going through the installation, although it may still depend on ffmpeg: https://github.com/cromachina/art-timelapse/releases
+### Installing on NixOS
+- Make sure experimental features are enabled for `nix-command` and `flakes`.
+- Example, run from source directory: `nix run .# -- --help`
+- Example, run from git: `nix run github:cromachina/art-timelapse -- --help`
+- Example, add to your `configuration.nix` so you can run `art-timelapse` directly:
+```nix
+environment.systemPackages = with pkgs; [
+  (builtins.getFlake "github:cromachina/art-timelapse/v1.3.1").packages.${pkgs.system}.default
+];
+```
 
 https://github.com/cromachina/art-timelapse/assets/82557197/3e10a9d4-d855-4e91-8070-8f21aa9c350c
-

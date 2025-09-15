@@ -12,7 +12,8 @@
     let
       pkgs = nixpkgs.legacyPackages.${system};
       lib = pkgs.lib;
-      pyPkgs = pkgs.python313Packages // {
+      python = pkgs.python313;
+      pyPkgs = python.pkgs // {
         pymemoryeditor = pyPkgs.buildPythonPackage {
           pname = "pymemoryeditor";
           version = "1.5.23";
@@ -40,7 +41,10 @@
         format = "pyproject";
         src = ./.;
         build-system = getPkgs pyproject.build-system.requires;
-        dependencies = getPkgs project.dependencies ++ [ pkgs.ffmpeg-full ];
+        dependencies = getPkgs project.dependencies ++ [
+          pyPkgs.tkinter
+          pkgs.ffmpeg-full
+        ];
       };
       editablePackage = pyPkgs.mkPythonEditablePackage {
         pname = project.name;
