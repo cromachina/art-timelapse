@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "art-timelapse"
-version = "1.3.0"
+version = "1.3.1"
 authors = [
     { name = "cromachina" }
 ]
@@ -24,6 +24,11 @@ dependencies = [
     'mss',
     'psutil',
     'pymemoryeditor',
+]
+
+[project.optional-dependencies]
+dev = [
+    "pyinstaller",
 ]
 
 [project.urls]

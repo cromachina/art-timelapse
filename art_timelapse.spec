@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ['src/art_timelapse/art_timelapse.py'],
+    ['pyinstaller_main.py'],
     pathex=[],
     binaries=[],
     datas=[],
