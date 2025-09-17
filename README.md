@@ -21,7 +21,7 @@ By recording the end of each stroke of a drawing, you get the largest amount of 
   - Incompatible containers and codecs will display errors and might not produce any resulting video file.
 - If you specify `--web`, the `container` and `codec` are set to `mp4` and `avc1` respectively. This format is accepted by many websites for upload, but it can reduce color quality. This is best used when exporting (with `--export`). If you really need to save disk space, then recording with `--web` will be very efficient.
 - You can also record JPEGs to a zip file with `--zip` but I don't recommend this because it takes up a lot of space. This is how the program originally worked.
-- You can export the saved frame data with `--export`. By default the video will try to be made no longer than 60 seconds, like a typical timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to have no limit on the export length. If the frame data is a directory, such as when previously using `--video`, it will instead concatenate the videos in the directory together, compressed to the appropriate length.
+- You can export the saved frame data with `--export`. By default the video will try to be made no longer than 60 seconds, like a typical timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to have no limit on the export length.
 
 | Format | Quality | Size (relative to MP4) | Estimated size (~25k 1000px frames recorded) |
 |--|--|--|--|
@@ -36,6 +36,7 @@ By recording the end of each stroke of a drawing, you get the largest amount of 
 - It will only record a new frame if it is different from the last frame, as to prevent clicks on other parts of the program from creating redundant frames.
 - This mode will not work natively on MacOS because PyMemoryEditor does not have a MacOS implementation. You might be able to run this program in Wine on MacOS to get around this.
 - I think that this mode provides the best looking timelapse for SAI.
+- This mode has to be updated for each new version of SAI, so it may not be compatible with the latest version of SAI as it's released.
 #### PSD capture
 - If using `--psd-file <filename>`, a frame will be captured every time the PSD file is finished being written to (such as after saving).
 - This mode will make a choppy looking timelapse, depending on how frequently you save your work, but the effect isn't terrible.
@@ -95,7 +96,7 @@ You can find prebuilt executables in the releases page instead of going through 
 
 ### Installing with Nix on Ubuntu (or other Linux distros)
 - Initial nix setup:
-  - Install nix: `sudo apt install nix-bin`
+  - Install nix (may differ for your distro): `sudo apt install nix-bin`
   - Add yourself to the `nix-users` group: ``sudo usermod -a -G nix-users `whoami` ``
   - Refresh the group for your session: `newgrp nix-users`
   - Update `nix.conf` so you can use flakes:
@@ -114,5 +115,8 @@ environment.systemPackages = with pkgs; [
   (builtins.getFlake "github:cromachina/art-timelapse/v1.3.1").packages.${pkgs.system}.default
 ];
 ```
+
+### Todo
+- Maybe make a simple GUI.
 
 https://github.com/cromachina/art-timelapse/assets/82557197/3e10a9d4-d855-4e91-8070-8f21aa9c350c
