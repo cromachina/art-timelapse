@@ -24,6 +24,7 @@ dependencies = [
     'mss',
     'psutil',
     'pymemoryeditor',
+    'ttkbootstrap',
 ]
 
 [project.optional-dependencies]

@@ -5,12 +5,12 @@ import json
 import traceback
 import time
 
-import tkinter as tk
-from tkinter import ttk, filedialog
+import ttkbootstrap as ttk
+from tkinter import filedialog
 
 from . import asynctk, timelapse, sai
 
-class StackStringVar(tk.StringVar):
+class StackStringVar(ttk.StringVar):
     def __init__(self, *args, **kwargs):
         self.stack = []
         super().__init__(*args, **kwargs)
@@ -23,12 +23,12 @@ class StackStringVar(tk.StringVar):
         value = self.stack.pop()
         self.set(value)
 
-class ButtonRow(tk.Frame):
+class ButtonRow(ttk.Frame):
     def __init__(self, master, text=None, textvariable=None):
         super().__init__(master)
-        self.pack(fill=tk.X)
-        self.button = tk.Button(self, text=text, textvariable=textvariable)
-        self.button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.pack(fill=ttk.X)
+        self.button = ttk.Button(self, text=text, textvariable=textvariable)
+        self.button.pack(side=ttk.LEFT, fill=ttk.X, expand=True)
 
     def set_text(self, text):
         self.button.config(text=text)
@@ -36,14 +36,14 @@ class ButtonRow(tk.Frame):
     def set_callback(self, callback):
         self.button.config(command=callback)
 
-class ProgressRow(tk.Frame):
+class ProgressRow(ttk.Frame):
     def __init__(self, master):
         super().__init__(master)
-        self.pack(fill=tk.X)
-        self.label = tk.Label(self)
+        self.pack(fill=ttk.X)
+        self.label = ttk.Label(self)
         self.label.pack()
         self.progressbar = ttk.Progressbar(self)
-        self.progressbar.pack(fill=tk.X, expand=True)
+        self.progressbar.pack(fill=ttk.X, expand=True)
         self.loop = asyncio.get_running_loop()
 
     def iterate(self, iterable, unit='it'):
@@ -76,24 +76,24 @@ class ProgressRow(tk.Frame):
             self.label.config(text=f'{i}/{total} [{elapsed_minutes:02}:{elapsed_seconds:02}<{eta_minutes:02}:{eta_seconds:02}, {ips:.2f}{unit}/s]')
         self.progressbar.config(value=value)
 
-class LabelRow(tk.Frame):
+class LabelRow(ttk.Frame):
     def __init__(self, master, text):
         super().__init__(master)
-        self.pack(fill=tk.X,)
-        self.label = tk.Label(self, text=text)
-        self.label.pack(side=tk.LEFT)
+        self.pack(fill=ttk.X)
+        self.label = ttk.Label(self, text=text)
+        self.label.pack(side=ttk.LEFT)
 
 class StatusLabelRow(LabelRow):
     def __init__(self, master, label_text, status_text='', textvariable=None):
         super().__init__(master, label_text)
-        self.status = tk.Label(self, text=status_text, textvariable=textvariable)
-        self.status.pack(side=tk.LEFT)
+        self.status = ttk.Label(self, text=status_text, textvariable=textvariable)
+        self.status.pack(side=ttk.LEFT)
 
 class CheckbuttonLabelRow(LabelRow):
     def __init__(self, master, text, variable=None):
         super().__init__(master, text)
         self.checkbutton = ttk.Checkbutton(self, variable=variable)
-        self.checkbutton.pack(side=tk.LEFT)
+        self.checkbutton.pack(side=ttk.LEFT)
 
 def check_digit(p):
     return str(p).isdigit() or str(p) == ''
@@ -101,22 +101,22 @@ def check_digit(p):
 class EntryLabelRow(LabelRow):
     def __init__(self, master, text, numbers=False, button_text=None, textvariable=None):
         super().__init__(master, text)
-        self.textvariable = textvariable or tk.StringVar()
+        self.textvariable = textvariable or ttk.StringVar()
         kwargs = {}
         if numbers:
-            kwargs['validate'] = 'all'
+            kwargs['validate'] = ttk.ALL
             proc = self.register(check_digit)
             kwargs['validatecommand'] = (proc, '%P')
         kwargs['textvariable'] = self.textvariable
-        self.entry = tk.Entry(self, **kwargs)
-        self.entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.entry = ttk.Entry(self, **kwargs)
+        self.entry.pack(side=ttk.LEFT, fill=ttk.X, expand=True)
         self.button = None
         if button_text is not None:
-            self.button = tk.Button(self, text=button_text)
-            self.button.pack(side=tk.LEFT)
+            self.button = ttk.Button(self, text=button_text)
+            self.button.pack(side=ttk.LEFT)
 
     def enable(self, state):
-        self.entry.config(state=tk.NORMAL if state else tk.DISABLED)
+        self.entry.config(state=ttk.NORMAL if state else ttk.DISABLED)
 
 def get_nearest_dir(path):
     path = Path(path).absolute()
@@ -164,14 +164,14 @@ class ComboboxLabelRow(LabelRow):
         super().__init__(master, text)
         self.index_var = index_variable
         if self.index_var is None:
-            self.index_var = tk.IntVar(value=0)
-        self.combobox = ttk.Combobox(self, state='readonly')
-        self.combobox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            self.index_var = ttk.IntVar(value=0)
+        self.combobox = ttk.Combobox(self, state=ttk.READONLY)
+        self.combobox.pack(side=ttk.LEFT, fill=ttk.X, expand=True)
         self.combobox.bind('<<ComboboxSelected>>', self.on_selected)
         self.set_values(values)
 
     def on_selected(self, _event):
-        if isinstance(self.index_var, tk.StringVar):
+        if isinstance(self.index_var, ttk.StringVar):
             self.index_var.set(self.combobox.get())
         else:
             self.index_var.set(self.combobox.current())
@@ -184,7 +184,7 @@ class ComboboxLabelRow(LabelRow):
         self.combobox.config(values=values)
         try:
             if init:
-                if isinstance(self.index_var, tk.StringVar):
+                if isinstance(self.index_var, ttk.StringVar):
                     self.combobox.current(values.index(self.index_var.get()))
                 else:
                     self.combobox.current(self.index_var.get())
@@ -196,10 +196,10 @@ class ComboboxLabelRow(LabelRow):
             else:
                 self.combobox.set('')
 
-class VideoConfigFrame(tk.Frame):
+class VideoConfigFrame(ttk.Frame):
     def __init__(self, master, shared_vars):
         super().__init__(master)
-        self.pack(fill=tk.X)
+        self.pack(fill=ttk.X)
         self.video_types = [
             ('mp4/avc1', ('mp4', 'avc1')),
             ('webm/vp80', ('webm', 'vp80')),
@@ -224,18 +224,24 @@ class VideoConfigFrame(tk.Frame):
     def set_button_callback(self, callback):
         self.button.set_callback(callback)
 
-class StatusArea(tk.LabelFrame):
+class StatusArea(ttk.LabelFrame):
     def __init__(self, master):
         super().__init__(master, text='Status')
-        self.pack(fill=tk.BOTH, expand=True)
-        self.text = tk.Text(self, fg='#f0f0f0', bg='#282c34', state=tk.DISABLED)
-        self.text.pack(fill=tk.BOTH, expand=True)
+        self.pack(fill=ttk.BOTH, expand=True)
+        font_size = 10
+        if 'Consolas' in ttk.font.families():
+            font = ('Consolas', font_size)
+        else:
+            font = ttk.font.nametofont('TkFixedFont')
+            font.config(size=font_size)
+        self.text = ttk.Text(self, state=ttk.DISABLED, font=font)
+        self.text.pack(fill=ttk.BOTH, expand=True)
 
     def append(self, text):
-        self.text.config(state=tk.NORMAL)
-        self.text.insert(index=tk.END, chars=f'{text}\n')
-        self.text.see(tk.END)
-        self.text.config(state=tk.DISABLED)
+        self.text.config(state=ttk.NORMAL)
+        self.text.insert(index=ttk.END, chars=f'{text}\n')
+        self.text.see(ttk.END)
+        self.text.config(state=ttk.DISABLED)
 
 class AsyncWidgetLogger(logging.Handler):
     def __init__(self, widget):
@@ -255,8 +261,8 @@ def make_image_size_limit_box(master, textvariable=None):
     return EntryLabelRow(master, 'Image size limit (px)', numbers=True, textvariable=textvariable)
 
 def make_notebook_frame(notebook, text):
-    frame = tk.Frame(notebook)
-    frame.pack(fill=tk.BOTH, expand=True)
+    frame = ttk.Frame(notebook)
+    frame.pack(fill=ttk.BOTH, expand=True)
     notebook.add(frame, text=text)
     return frame
 
@@ -276,9 +282,9 @@ def auto_size_label_rows(master):
 
 class Settings:
     var_types = {
-        int: tk.IntVar,
-        str: tk.StringVar,
-        bool: tk.BooleanVar,
+        int: ttk.IntVar,
+        str: ttk.StringVar,
+        bool: ttk.BooleanVar,
     }
 
     def __init__(self, file_name):
@@ -336,13 +342,12 @@ class App(asynctk.AsyncTk):
         }
 
         notebook = ttk.Notebook(self)
-        notebook.pack(side=tk.TOP, fill=tk.X)
+        notebook.pack(side=ttk.TOP, fill=ttk.X)
 
         sai_frame = make_notebook_frame(notebook, 'SAI Recording')
         make_frames_entry(sai_frame, self.frames_file_var)
-        self.sai_version_status_var = tk.StringVar()
-        sai_version_status = StatusLabelRow(sai_frame, 'SAI version detected:', textvariable=self.sai_version_status_var)
-        sai_version_status.status.config(fg='blue')
+        self.sai_version_status_var = ttk.StringVar()
+        StatusLabelRow(sai_frame, 'SAI version detected:', textvariable=self.sai_version_status_var)
         self.sai_canvas_var = self.settings.get_var('sai_canvas', '')
         self.sai_canvas_box = ComboboxLabelRow(sai_frame, 'Canvas', index_variable=self.sai_canvas_var)
         self.image_size_limit_var = self.settings.get_var('image_size_limit', 1000)
@@ -384,17 +389,28 @@ class App(asynctk.AsyncTk):
         logger = AsyncWidgetLogger(status_area)
         logging.getLogger().addHandler(logger)
 
+        meta_config = ttk.Frame(self)
+        meta_config.pack(fill=ttk.X)
+        ttk.Label(meta_config, text='Theme:').pack(side=ttk.LEFT)
+
+        theme_box = ttk.Combobox(meta_config, state=ttk.READONLY)
+        theme_var = self.settings.get_var('theme', 'darkly')
+        theme_box.pack(side=ttk.LEFT)
+        theme_box.config(values=ttk.Style().theme_names(), textvariable=theme_var)
+        theme_box.bind('<<ComboboxSelected>>', lambda _: ttk.Style(theme_box.get()))
+        theme_box.set(ttk.Style(theme_var.get()).theme_use())
+
         auto_size_label_rows(self)
 
         logging.info('Supported SAI versions:')
         for api in sorted(sai.sai_api_lookup.values(), key=lambda x: x.version_name):
             logging.info(f'  {api.version_name}')
 
-        self.sai_recording_frame.set_button_callback(self.recording_wrapper(self.record_sai))
-        self.psd_recording_frame.set_button_callback(self.recording_wrapper(self.record_psd))
-        self.screen_click_button.set_callback(self.recording_wrapper(self.record_screen, grab=False))
-        self.screen_grab_button.set_callback(self.recording_wrapper(self.record_screen, grab=True))
-        self.export_config_frame.set_button_callback(self.export)
+        self.sai_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_sai))
+        self.psd_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_psd))
+        self.screen_click_button.set_callback(self.recording_wrapper(True, self.record_screen, grab=False))
+        self.screen_grab_button.set_callback(self.recording_wrapper(True, self.record_screen, grab=True))
+        self.export_config_frame.set_button_callback(self.recording_wrapper(False, self.export))
 
         self.background_task = asyncio.create_task(self.run_background_task())
         self.operation_task: asyncio.Task | None = None
@@ -436,7 +452,6 @@ class App(asynctk.AsyncTk):
                 start_log = 'Recording started'
                 stop_log = 'Recording stopped'
                 stop_text = 'Stop Recording'
-
             else:
                 start_log = 'Exporting started'
                 stop_log = 'Exporting stopped'
@@ -459,8 +474,8 @@ class App(asynctk.AsyncTk):
                 self.operation_task = None
         self.operation_task = asyncio.create_task(subtask())
 
-    def recording_wrapper(self, task, *args, **kwargs):
-        return lambda: self.run_operation(True, task, *args, **kwargs)
+    def recording_wrapper(self, recording_mode, task, *args, **kwargs):
+        return lambda: self.run_operation(recording_mode, task, *args, **kwargs)
 
     async def record_sai(self):
         frames_path = self.frames_file_var.get()
@@ -488,25 +503,23 @@ class App(asynctk.AsyncTk):
         container, codec = self.sai_recording_frame.get_format()
         await timelapse.screen_capture(window, bbox, frames_path, container, codec)
 
-    def export(self):
-        async def task():
-            frames_path = self.frames_file_var.get()
-            export_time_limit = self.export_time_limit_var.get()
-            if self.export_use_recording_var.get():
-                container, codec = self.sai_recording_frame.get_format()
-            else:
-                container, codec = self.export_config_frame.get_format()
-            output_path = self.export_file_var.get()
-            def progress_kill_check(iterable, unit):
-                for it in self.export_progress.iterate(iterable, unit):
-                    yield it
-                    if not self.thread_running:
-                        logging.info('Export cancelled')
-                        return
-                self.thread_running = False
-            self.thread_running = True
-            await asyncio.to_thread(timelapse.export, progress_kill_check, export_time_limit, frames_path, container, codec, output_path)
-        self.run_operation(False, task)
+    async def export(self):
+        frames_path = self.frames_file_var.get()
+        export_time_limit = self.export_time_limit_var.get()
+        if self.export_use_recording_var.get():
+            container, codec = self.sai_recording_frame.get_format()
+        else:
+            container, codec = self.export_config_frame.get_format()
+        output_path = self.export_file_var.get()
+        def progress_kill_check(iterable, unit):
+            for it in self.export_progress.iterate(iterable, unit):
+                yield it
+                if not self.thread_running:
+                    logging.info('Export cancelled')
+                    return
+            self.thread_running = False
+        self.thread_running = True
+        await asyncio.to_thread(timelapse.export, progress_kill_check, export_time_limit, frames_path, container, codec, output_path)
 
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
         logging.exception("".join(traceback.format_exception(exc_type, exc_value, exc_tb)))
