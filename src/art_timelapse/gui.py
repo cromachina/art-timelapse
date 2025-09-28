@@ -431,6 +431,7 @@ class App(asynctk.AsyncTk):
         while True:
             sai_pid = sai.find_running_sai_pid()
             if sai_pid is None:
+                self.sai_proc = None
                 self.sai_version_status_var.set("SAI is not running")
             elif sai_pid != last_pid:
                 last_pid = sai_pid
