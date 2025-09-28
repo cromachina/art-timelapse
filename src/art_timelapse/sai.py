@@ -265,10 +265,16 @@ class SAIv2_API_2024_11_23(SAIv2_API_Base):
             (0x4ac, 'short_path', ctypes.c_uint16 * 0x100)
         ])
 
+def get_pid_by_name(name):
+    psutil.process_iter.cache_clear()
+    for proc in psutil.process_iter(['pid', 'name']):
+        if proc.name() == name:
+            return proc.pid
+    return None
+
 def find_running_sai_pid():
     try:
-        return (util.get_process_id_by_process_name(SAIv1_API_Base.process_name)
-            or  util.get_process_id_by_process_name(SAIv2_API_Base.process_name))
+        return get_pid_by_name(SAIv1_API_Base.process_name) or get_pid_by_name(SAIv2_API_Base.process_name)
     except:
         return None
 
@@ -279,6 +285,7 @@ class SAI:
         if pid is None:
             raise Exception('No SAI process detected.')
         self.proc = OpenProcess(pid=pid)
+        self.psutil_proc = psutil.Process(pid=pid)
         self.base_address = self.get_base_address()
         self.api = get_sai_api(self.get_sai_exe_hash())(self.proc, self.base_address)
 
@@ -288,6 +295,9 @@ class SAI:
     def __exit__(self, *exc_args):
         if self.proc is not None:
             self.proc.close()
+
+    def is_running(self):
+        return self.psutil_proc.is_running()
 
     def get_pid(self):
         return self.proc.pid

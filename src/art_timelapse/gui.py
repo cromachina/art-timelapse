@@ -415,6 +415,7 @@ class App(asynctk.AsyncTk):
         self.screen_grab_button.set_callback(self.recording_wrapper(True, self.record_screen, grab=True))
         self.export_config_frame.set_button_callback(self.recording_wrapper(False, self.export))
 
+        self.sai_proc = None
         self.background_task = asyncio.create_task(self.run_background_task())
         self.operation_task: asyncio.Task | None = None
 
@@ -429,21 +430,24 @@ class App(asynctk.AsyncTk):
     async def run_background_task(self):
         last_pid = None
         while True:
-            sai_pid = sai.find_running_sai_pid()
-            if sai_pid is None:
-                self.sai_proc = None
-                self.sai_version_status_var.set("SAI is not running")
-            elif sai_pid != last_pid:
-                last_pid = sai_pid
-                self.sai_proc = sai.SAI()
-                if self.sai_proc.is_sai_version_compatible(log=False):
-                    self.sai_version_status_var.set(self.sai_proc.api.version_name)
-                else:
-                    self.sai_proc = None
-                    self.sai_version_status_var.set("Unknown version")
-            if self.sai_proc is not None:
+            if self.sai_proc is not None and self.sai_proc.is_running():
                 canvases = [f'{canvas.get_name()} ({canvas.get_short_path()})' for canvas in self.sai_proc.get_canvas_list()]
                 self.sai_canvas_box.set_values(canvases, init=True)
+            else:
+                self.sai_proc = None
+                sai_pid = sai.find_running_sai_pid()
+                if sai_pid is None:
+                    self.sai_proc = None
+                    self.sai_version_status_var.set("SAI is not running")
+                elif sai_pid != last_pid:
+                    last_pid = sai_pid
+                    self.sai_proc = sai.SAI()
+                    if self.sai_proc.is_sai_version_compatible(log=False):
+                        self.sai_version_status_var.set(self.sai_proc.api.version_name)
+                        continue
+                    else:
+                        self.sai_proc = None
+                        self.sai_version_status_var.set("Unknown version")
             await asyncio.sleep(0.5)
 
     def run_operation(self, recording_mode, task, *args, **kwargs):
