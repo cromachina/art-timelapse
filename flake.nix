@@ -16,16 +16,13 @@
       pyPkgs = python.pkgs // {
         pymemoryeditor = pyPkgs.buildPythonPackage {
           pname = "pymemoryeditor";
-          version = "1.5.23";
+          version = "1.5.24";
           src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/f9/a3/45b6a5c0fc7148752c2959bbfb4c964fbd2b95d36701e04cb5ca87e2a903/pymemoryeditor-1.5.23-py3-none-any.whl";
-            sha256 = "1kv5kdzwls3p2pspsfylpq1qnazh879yc3qsng1nhqnpy5z9vhax";
+            url = "https://files.pythonhosted.org/packages/e5/0f/efcf707643bdce3831726a55361b72754788d8b8502a48bdf7005b8c214c/pymemoryeditor-1.5.24-py3-none-any.whl";
+            sha256 = "0d607bd43d49fa7b5c8479d9c53ea2386baf06ab298b9c464bb03553babbd60e";
           };
           format = "wheel";
           doCheck = false;
-          buildInputs = [];
-          checkInputs = [];
-          nativeBuildInputs = [];
           propagatedBuildInputs = with pyPkgs; [
             psutil
           ];

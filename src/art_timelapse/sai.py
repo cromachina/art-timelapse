@@ -9,8 +9,13 @@ from PyMemoryEditor import OpenProcess
 from PyMemoryEditor.process import util
 import numpy as np
 
+def trim_null(data):
+    if '\0' in data:
+        data = data[0:data.index('\0')]
+    return data
+
 def from_wide_str(data):
-    return bytes(data).decode('utf-16le')
+    return trim_null(bytes(data).decode('utf-16le'))
 
 class RemotePointerBase(ctypes.Structure):
     def __getitem__(self, key):
@@ -85,8 +90,9 @@ if 'win' in sys.platform:
         return modules[0]
 
 sai_api_lookup = {}
-def add_sai_api(api):
+def register_sai_api(api):
     sai_api_lookup[api.exe_hash] = api
+    return api
 
 def get_sai_api(hash):
     result = sai_api_lookup.get(hash)
@@ -153,6 +159,7 @@ class SAIv1_API_Base(SAI_API_Base):
         image = np.frombuffer(data, dtype=np.uint8).reshape(data_shape)
         return image[lower_pad_y : canvas.height + lower_pad_y, lower_pad_x : canvas.width + lower_pad_x, :3]
 
+@register_sai_api
 class SAIv1_API_1_2_5(SAIv1_API_Base):
     version_name = 'SAI Ver.1.2.5 (32bit)'
     exe_hash = 'f4e7e00aa4c222d6253aa1f0a5f302c2'
@@ -170,10 +177,10 @@ class SAIv1_API_1_2_5(SAIv1_API_Base):
         _pack_ = 1
 
         def get_name(self):
-            return self.name.decode()
+            return trim_null(self.name.decode())
 
         def get_short_path(self):
-            return self.short_path.decode()
+            return trim_null(self.short_path.decode())
 
     SAICanvas._fields_ = offset_fields([
             (0x004, 'next_canvas', RPOINTER32(SAICanvas)),
@@ -193,13 +200,12 @@ class SAIv1_API_1_2_5(SAIv1_API_Base):
     SAISession._fields_ = offset_fields([
         (0x4c, 'canvas_list', RPOINTER32(SAICanvas)),
     ])
-add_sai_api(SAIv1_API_1_2_5)
 
+@register_sai_api
 class SAIv1_API_1_2_6_Beta_3(SAIv1_API_1_2_5):
     version_name = 'SAI Ver.1.2.6-Beta.3 (32bit)'
     exe_hash = 'b693f2c4516c09d008e30827208be1e6'
     session_offset = 0x494bcc
-add_sai_api(SAIv1_API_1_2_6_Beta_3)
 
 class SAIv2_API_Base(SAI_API_Base):
     process_name = 'sai2.exe'
@@ -226,6 +232,7 @@ class SAIv2_API_Base(SAI_API_Base):
                 image[y * 256 : (y + 1) * 256, x * 256 : (x + 1) * 256] = tile
         return image[0 : canvas.height, 0 : canvas.width, :3]
 
+@register_sai_api
 class SAIv2_API_2024_11_23(SAIv2_API_Base):
     version_name = 'SAI Ver.2 (64bit) Preview.2024.11.23'
     exe_hash = 'bd60d6750ef57668f9bc44eb98d992c4'
@@ -257,12 +264,18 @@ class SAIv2_API_2024_11_23(SAIv2_API_Base):
             (0x2ac, 'name', ctypes.c_uint16 * 0x100),
             (0x4ac, 'short_path', ctypes.c_uint16 * 0x100)
         ])
-add_sai_api(SAIv2_API_2024_11_23)
 
-class SAI():
+def find_running_sai_pid():
+    try:
+        return (util.get_process_id_by_process_name(SAIv1_API_Base.process_name)
+            or  util.get_process_id_by_process_name(SAIv2_API_Base.process_name))
+    except:
+        return None
+
+class SAI:
     def __init__(self):
         self.proc = None
-        pid = self.find_running_sai_pid()
+        pid = find_running_sai_pid()
         if pid is None:
             raise Exception('No SAI process detected.')
         self.proc = OpenProcess(pid=pid)
@@ -279,15 +292,12 @@ class SAI():
     def get_pid(self):
         return self.proc.pid
 
-    def find_running_sai_pid(self):
-        return (util.get_process_id_by_process_name(SAIv1_API_Base.process_name)
-            or  util.get_process_id_by_process_name(SAIv2_API_Base.process_name))
-
     def get_region_data_by_name(self, name):
         for region in self.proc.get_memory_regions():
             path = region['struct'].Path.decode()
             if name in path:
                 return path, region['address']
+        return None
 
     def get_base_address(self):
         if 'win' in sys.platform:

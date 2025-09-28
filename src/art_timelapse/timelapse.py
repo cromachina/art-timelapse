@@ -1,12 +1,8 @@
 from pathlib import Path
-from zipfile import ZipFile
-import argparse
 import asyncio
-import json
-import os
 import time
 import tkinter as tk
-import zipfile
+import logging
 
 from PIL import Image, ImageOps
 from psd_tools import PSDImage
@@ -18,18 +14,21 @@ import pynput
 import pywinctl
 import tqdm
 from mss import mss
-from . import sai
+
+from . import asynctk, sai
 
 FPS = 30
 
-def even_dim(a):
+Vec2 = tuple[int, int]
+
+def even_dim(a:int) -> int:
     return a if a % 2 == 0 else a - 1
 
-def even_size(size):
-    return tuple(even_dim(int(x)) for x in size)
+def even_size(size:Vec2) -> Vec2:
+    return even_dim(int(size[0])), even_dim(int(size[1]))
 
-def max_size(size_a, size_b):
-    return tuple(max(a, b) for a, b in zip(size_a, size_b))
+def max_size(size_a:Vec2, size_b:Vec2) -> Vec2:
+    return max(size_a[0], size_b[0]), max(size_a[1], size_b[1])
 
 def point_in_bbox(bbox, point):
     return bbox[0] <= point[0] <= bbox[2] and bbox[1] <= point[1] <= bbox[3]
@@ -62,8 +61,8 @@ def get_spanned_rect(pos1, pos2):
     p2x, p2y = pos2
     return min(p1x, p2x), min(p1y, p2y), max(p1x, p2x), max(p1y, p2y)
 
-def get_bbox_from_drag_rect():
-    win = tk.Tk()
+async def get_bbox_from_drag_rect():
+    win = asynctk.AsyncTk()
     sw = win.winfo_screenwidth()
     sh = win.winfo_screenheight()
     set_rect_params(win, sw, sh, 0.25)
@@ -91,12 +90,14 @@ def get_bbox_from_drag_rect():
         pos1 = (event.x, event.y)
         win_motion(event)
 
-    def set_released(event):
+    def set_released(_event):
         win.destroy()
+        win.stop()
 
-    def set_cancelled(event):
+    def set_cancelled(_event):
         nonlocal cancelled
         win.destroy()
+        win.stop()
         cancelled = True
 
     win.bind('<Motion>', win_motion)
@@ -104,41 +105,50 @@ def get_bbox_from_drag_rect():
     win.bind('<ButtonRelease-1>', set_released)
     win.bind('<ButtonPress-3>', set_cancelled)
     win.lift()
-    win.mainloop()
+    await win.async_main_loop()
     if cancelled:
         return None
     else:
         return *pos1, *pos2
 
-def get_window_from_click():
-    print('Click on a subwindow to start recording. Right click to cancel.')
+async def get_window_from_click():
+    logging.info('Click on a subwindow to start tracking. Right click to cancel.')
     window = None
+    loop = asyncio.get_running_loop()
+    event = asyncio.Event()
+    def notify():
+        mouse_listener.stop()
+        loop.call_soon_threadsafe(event.set)
     def on_click(x, y, button, is_pressed):
         nonlocal window
         if is_pressed:
             if button == pynput.mouse.Button.left:
                 window = pywinctl.getTopWindowAt(x, y)
-                mouse_listener.stop()
+                notify()
             elif button == pynput.mouse.Button.right:
-                mouse_listener.stop()
+                notify()
     mouse_listener = pynput.mouse.Listener(on_click=on_click)
     mouse_listener.start()
+    await event.wait()
     mouse_listener.join()
     return window
 
-def drag_window_and_bbox():
-    print('Click and drag on a window to record that area. Right click to cancel selection.')
-    bbox = get_bbox_from_drag_rect()
+async def drag_window_and_bbox():
+    logging.info('Click and drag on a window to track that area. Right click to cancel.')
+    bbox = await get_bbox_from_drag_rect()
     if bbox is None:
         return None, None
     window = pywinctl.getTopWindowAt(*bbox[:2])
     return window, bbox
 
-def get_window_and_bbox(config):
-    if config.drag_grab:
-        return drag_window_and_bbox()
+async def get_window_and_bbox(drag_grab):
+    if drag_grab:
+        result = await drag_window_and_bbox()
     else:
-        return get_window_from_click(), None
+        result = await get_window_from_click(), None
+    if result[0] is None:
+        logging.info("Window grab cancelled")
+    return result
 
 def get_root_window(window):
     pid = window.getPID()
@@ -150,61 +160,27 @@ def get_root_window(window):
         else:
             return window
 
-def get_window_from_pid(pid):
+async def get_window_from_pid(pid):
     result = None
     for window in pywinctl.getAllWindows():
         if window.getPID() == pid:
             result = window
     if result is None:
-        print('Could not find window automatically')
-        result = get_window_from_click()
+        logging.info('Could not find window automatically')
+        result = await get_window_from_click()
     if result is not None:
         result = get_root_window(result)
+    else:
+        logging.info("Window grab cancelled")
     return result
-
-# Metadata handler for zipfiles.
-class Metadata:
-    def __init__(self, frames_file:ZipFile):
-        self.frames_file = frames_file
-        self.load()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc_args):
-        try:
-            self.save()
-        except:
-            pass
-
-    def load(self):
-        str_data = self.frames_file.comment.decode()
-        try:
-            metadata = json.loads(str_data)
-            if isinstance(metadata, dict):
-                self.metadata = metadata
-            else:
-                self.metadata = {}
-        except:
-            self.metadata = {}
-
-    def save(self):
-        self.frames_file.comment = json.dumps(self.metadata).encode()
-
-    def get_max_size(self):
-        return tuple(self.metadata.get('max_size', (0, 0)))
-
-    def update_max_size(self, new_size):
-        old_size = self.get_max_size()
-        self.metadata['max_size'] = tuple(max(a, b) for a, b in zip(old_size, new_size))
 
 # Handles output to a video file.
 class VideoWriter:
     def __init__(self, file_path, size, container, codec, log=False):
         self.size = even_size(size)
-        self.file_path = file_path.with_suffix(f'.{container}')
+        self.file_path = Path(file_path).with_suffix(f'.{container}')
         if log:
-            print(f'Writing to video: {self.file_path} ({codec})')
+            logging.info(f'Writing to video: {self.file_path} ({codec})')
         self.writer = cv2.VideoWriter(str(self.file_path), cv2.VideoWriter.fourcc(*codec), FPS, self.size)
 
     def __enter__(self):
@@ -216,11 +192,11 @@ class VideoWriter:
     def close(self):
         self.writer.release()
 
-    def write(self, img, cvtColor=True):
+    def write(self, img, cvt_color=True):
         if img.size != self.size:
             img = ImageOps.pad(img, self.size)
         img = np.asarray(img)
-        if cvtColor:
+        if cvt_color:
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         self.writer.write(img)
 
@@ -251,38 +227,13 @@ class VideoReader:
     def get_size(self):
         return int(self.video_reader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-# Handle writing frames to a zipfile with metadata.
-class ZipfileFramesWriter:
-    def __init__(self, frames, **_):
-        filename = frames.with_suffix('.zip')
-        filename.parent.mkdir(parents=True, exist_ok=True)
-        print(f'Writing to frames zip: {filename}')
-        self.zfile = ZipFile(filename, 'a', zipfile.ZIP_DEFLATED)
-        self.metadata = Metadata(self.zfile)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc_args):
-        self.close()
-
-    def close(self):
-        self.metadata.save()
-        self.zfile.close()
-        print(f'Closing frames zip: {self.zfile.filename}')
-
-    def write(self, img):
-        self.metadata.update_max_size(img.size)
-        with self.zfile.open(f'{time.time_ns()}.jpg', 'w') as mfile:
-            img.save(mfile, format='jpeg', quality=95)
-
 # Automatically open and close video writers if the input images change size.
 class VideoSequenceWriter:
-    def __init__(self, frames, container, codec, **_):
+    def __init__(self, frames, container, codec):
         self.container = container
         self.codec = codec
         self.folder = Path(frames)
-        print(f'Writing to frames folder: {self.folder}; container: {container}; codec: {codec}')
+        logging.info(f'Writing to frames folder: {self.folder}; container: {container}; codec: {codec}')
         self.folder.mkdir(parents=True, exist_ok=True)
         self.writer = None
 
@@ -314,7 +265,7 @@ class VideoSequenceWriter:
 class VideoSequenceReader:
     def __init__(self, folder):
         self.folder = Path(folder)
-        print(f'Reading from frames folder: {self.folder}')
+        logging.info(f'Reading from frames folder: {self.folder}')
         self.reader = None
         self.frame_count = 0
         self.size = (0, 0)
@@ -376,6 +327,9 @@ class EventTrackerBase:
     def __exit__(self, *exc_args):
         self.stop()
 
+    def stop(self):
+        pass
+
     def emit_event(self):
         self._loop.call_soon_threadsafe(self._queue.put_nowait, None)
 
@@ -389,7 +343,7 @@ class EventTrackerBase:
         try:
             while True:
                 yield await self.get_event()
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, asyncio.QueueShutDown):
             return
 
 # Track mouse clicks on a window.
@@ -402,7 +356,7 @@ class InputTracker(EventTrackerBase):
         self.click_started_in_window = False
         self.start()
 
-    def on_click_callback(self, x, y, button, is_pressed):
+    def on_click_callback(self, x, y, _button, is_pressed):
         if is_pressed:
             window = pywinctl.getTopWindowAt(x, y)
             self.click_started_in_window = window.getHandle() == self.target_window.getHandle()
@@ -416,25 +370,25 @@ class InputTracker(EventTrackerBase):
     async def track_window(self):
         while self.target_window.isAlive:
             await asyncio.sleep(0.1)
-        print(f'Window lost: {self._title}')
+        logging.info(f'Window lost: {self._title}')
         self.stop_event_stream()
 
     def start(self):
-        print(f'Tracking input for window: {self.target_window.title}')
+        logging.info(f'Tracking input for window: {self.target_window.title}')
         self.mouse_listener = pynput.mouse.Listener(on_click=self.on_click_callback)
         self.mouse_listener.start()
         self._wait_task = asyncio.create_task(self.track_window())
 
     def stop(self):
         self.mouse_listener.stop()
-        print(f'Stopped tracking window: {self.target_window.title}')
+        logging.info(f'Stopped tracking window: {self.target_window.title}')
 
 # Track a file and when it gets saved/closed.
 class FileTracker(FileSystemEventHandler, EventTrackerBase):
     def __init__(self, target_file):
         FileSystemEventHandler.__init__(self)
         EventTrackerBase.__init__(self)
-        self.target_file = target_file
+        self.target_file = Path(target_file)
         self.observer = Observer()
         self.start()
 
@@ -443,63 +397,41 @@ class FileTracker(FileSystemEventHandler, EventTrackerBase):
             self.emit_event()
 
     def start(self):
-        print(f'Tracking file: {self.target_file}')
+        logging.info(f'Tracking file: {self.target_file}')
         self.observer.schedule(self, self.target_file.parent)
         self.observer.start()
 
     def stop(self):
         self.observer.stop()
         self.observer.join()
-        print(f'Stopped tracking file: {self.target_file}')
+        logging.info(f'Stopped tracking file: {self.target_file}')
 
 # Filter a sequence of frame indices achieve a specific maximum video length.
-def filter_frames(config, frames):
-    if config.export_time_limit > 0:
+def filter_frames(export_time_limit, frames):
+    if export_time_limit > 0:
         frame_count = len(frames)
-        target_frames = int(config.export_time_limit * FPS)
+        target_frames = int(export_time_limit * FPS)
         if frame_count > target_frames:
             nth = frame_count / target_frames
             return [frames[round(i * nth)] for i in range(target_frames)]
     return frames
 
-# Pick the appropriate export type based on the target frames path.
-def run_export(config):
-    path = Path(config.frames)
-    zip_path = path.with_suffix('.zip')
-    if zip_path.exists() and zip_path.is_file():
-        run_export_from_zip(config)
-    elif path.exists() and path.is_dir():
-        run_export_from_video_dir(config)
-    else:
-        raise Exception(f'No appropriate frame data found for {config.frames}')
-
-# Export frames captured to a zip file to video.
-def run_export_from_zip(config):
-    path = Path(config.frames).with_suffix('.zip')
-    with ZipFile(path, 'r') as zfile, Metadata(zfile) as metadata:
-        frames = sorted(zfile.namelist())
-        if len(frames) == 0:
-            return
-        frames.insert(0, frames[-1])
-        frames = filter_frames(config, frames)
-        with VideoWriter(config.frames, metadata.get_max_size(), config.container, config.codec, log=True) as writer:
-            for frame in tqdm.tqdm(frames, unit='frames'):
-                with zfile.open(frame, 'r') as mfile:
-                    img = Image.open(mfile)
-                    writer.write(img)
-
-# Concatenate videos captured to a folder.
-def run_export_from_video_dir(config):
-    with VideoSequenceReader(config.frames) as reader:
+def export(progress_iter, export_time_limit, frames, container, codec, output_path='', **_):
+    frames = Path(frames)
+    if output_path == '':
+        output_path = frames
+    if not (frames.exists() and frames.is_dir()):
+        raise Exception(f'No appropriate frame data found for {frames}')
+    with VideoSequenceReader(frames) as reader:
         if reader.frame_count == 0:
             return
         last_frame = Image.fromarray(reader.get_last_frame())
-        frames = list(range(reader.frame_count))
-        frames = filter_frames(config, frames)
+        data_frames = list(range(reader.frame_count))
+        data_frames = filter_frames(export_time_limit, data_frames)
         index = 0
-        with VideoWriter(config.frames, reader.size, config.container, config.codec, log=True) as writer:
+        with VideoWriter(output_path, reader.size, container, codec, log=True) as writer:
             writer.write(last_frame, False)
-            for frame in tqdm.tqdm(frames, unit='frames'):
+            for frame in progress_iter(data_frames, unit='frames'):
                 while index < frame:
                     reader.read()
                     index += 1
@@ -508,13 +440,17 @@ def run_export_from_video_dir(config):
                 index += 1
                 writer.write(data, False)
 
+# Concatenate videos captured to a folder.
+def cli_export(config):
+    export(tqdm.tqdm, **vars(config))
+
 def grab(sct, bbox):
     img = sct.grab(bbox)
     return Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
 
 def sai_version_check(sai_proc):
     if not sai_proc.is_sai_version_compatible():
-        print('Warning: Capture may not work correctly')
+        logging.info('Warning: Capture may not work correctly')
         res = input('Continue? [y/N]').lower()
         return res.startswith('y')
     return True
@@ -523,47 +459,34 @@ def select_canvas(sai_proc):
     while True:
         canvas_list = sai_proc.get_canvas_list()
         if len(canvas_list) == 0:
-            print('No open canvases detected.')
+            logging.info('No open canvases detected.')
             return None
-        print('Select a canvas to record (Ctrl+C to cancel):')
+        logging.info('Select a canvas to record (Ctrl+C to cancel):')
         for i, canvas in zip(range(len(canvas_list)), canvas_list):
-            print(f'[{i + 1}] {canvas.get_name()} ({canvas.get_short_path()})')
+            logging.info(f'[{i + 1}] {canvas.get_name()} ({canvas.get_short_path()})')
         res = input(f'Enter index [1-{len(canvas_list)}]:')
         try:
             res = int(res)
             canvas = canvas_list[res - 1]
         except ValueError:
-            print('Could not parse input, trying again')
+            logging.info('Could not parse input, trying again')
         except IndexError:
-            print('Index out of range, trying again')
+            logging.info('Index out of range, trying again')
         else:
             return canvas
 
 def is_different_image(a, b):
     return (a is None or b is None) or (a.shape != b.shape) or (np.any(a != b))
 
-def get_writer(config):
-    if config.zip:
-        writer = ZipfileFramesWriter
-    else:
-        writer = VideoSequenceWriter
-    return writer(**vars(config))
-
-# Capture images directly from SAI.
-async def run_sai_capture(config):
-    with get_writer(config) as writer, sai.SAI() as sai_proc:
-        if not sai_version_check(sai_proc):
-            return
-        canvas = select_canvas(sai_proc)
-        if canvas is None:
-            return
-        window = get_window_from_pid(sai_proc.get_pid())
-        if window is None:
-            return
+async def sai_capture(sai_proc, canvas, image_size_limit, frames, container, codec, **_):
+    window = await get_window_from_pid(sai_proc.get_pid())
+    if window is None:
+        return
+    with VideoSequenceWriter(frames, container, codec) as writer, InputTracker(window) as tracker:
         last_img = None
-        async for _ in InputTracker(window).get_event_stream():
+        async for _ in tracker.get_event_stream():
             if not sai_proc.check_if_canvas_exists(canvas):
-                print('Canvas lost, stopping now')
+                logging.info('Canvas lost, stopping now')
                 break
             img = sai_proc.get_canvas_image(canvas)
             if not is_different_image(last_img, img):
@@ -571,50 +494,51 @@ async def run_sai_capture(config):
             last_img = img
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(img)
-            img.thumbnail((config.image_size_limit, config.image_size_limit))
+            img.thumbnail((image_size_limit, image_size_limit))
+            writer.write(img)
+
+# Capture images directly from SAI.
+async def cli_sai_capture(config):
+    with sai.SAI() as sai_proc:
+        if not sai_version_check(sai_proc):
+            return
+        canvas = select_canvas(sai_proc)
+        if canvas is None:
+            return
+        await sai_capture(sai_proc, canvas, **vars(config))
+
+async def screen_capture(window, bbox, frames, container, codec, **_):
+    with VideoSequenceWriter(frames, container, codec) as writer, mss() as sct, InputTracker(window, bbox) as tracker:
+        async for _ in tracker.get_event_stream():
+            img = grab(sct, window.bbox if bbox is None else bbox)
             writer.write(img)
 
 # Capture a window's rectangular subregion or subwindow.
-async def run_screen_capture(config):
-    with get_writer(config) as writer, mss() as sct:
-        window, bbox = get_window_and_bbox(config)
-        if window is None:
-            return
-        if isinstance(writer, VideoSequenceWriter) and bbox is None:
-            bbox = window.bbox
-        async for _ in InputTracker(window, bbox).get_event_stream():
-            img = grab(sct, bbox)
-            writer.write(img)
+async def cli_screen_capture(config):
+    window, bbox = await get_window_and_bbox(config)
+    if window is None:
+        return
+    await screen_capture(window, bbox, **vars(config))
 
-# Capture images from a PSD file after it is written to disk.
-async def run_psd_capture(config):
-    with get_writer(config) as writer:
-        async for _ in FileTracker(config.psd_file).get_event_stream():
+async def psd_capture(psd_file, image_size_limit, frames, container, codec, **_):
+    with VideoSequenceWriter(frames, container, codec) as writer, FileTracker(psd_file) as tracker:
+        async for _ in tracker.get_event_stream():
             while True:
                 try:
-                    img = PSDImage.open(config.psd_file).composite()
+                    img = PSDImage.open(psd_file).composite()
                 except:
                     await asyncio.sleep(0.25)
                     continue
                 else:
                     break
-            img.thumbnail((config.image_size_limit, config.image_size_limit))
+            img.thumbnail((image_size_limit, image_size_limit))
             writer.write(img)
 
-async def async_main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--frames', help='Name of the file or directory to store frames or videos.')
-    parser.add_argument('--sai', action='store_true', help='Read SAI\'s memory directly to capture frames. Prompts for canvas selection.')
-    parser.add_argument('--psd-file', help='Instead of screen recording, record the specified PSD file every time it is written to.')
-    parser.add_argument('--image-size-limit', type=int, default=1000, help='Limit the resolution from a PSD or SAI capture.')
-    parser.add_argument('--export', action='store_true', help='Export the given frame data file to an MP4, or concatenate a video directory. Figures out what to do based on the frames path.')
-    parser.add_argument('--export-time-limit', type=float, default=60, help='Compress the play time of the exported MP4 file to be no longer than the given seconds. Default is 60 seconds. Set to 0 for uncompressed play time.')
-    parser.add_argument('--drag-grab', action='store_true', help='Drag a rectangle over a window to capture that area. Useful for when a subwindow cannot be captured by click.')
-    parser.add_argument('--container', default='webm', help='The format to store video in, for example "webm", "mp4", "avi". Default for storage is webm with VP8 codec for better color quality, but it takes up more space than mp4 with avc1.')
-    parser.add_argument('--codec', default='vp80', help='The fourcc for the video container\'s codec. Default for storage is VP8 (vp80).')
-    parser.add_argument('--web', action='store_true', help='Sets the video container and codec to "mp4" and "avc1" respectively, which is what Twitter and many other websites expect for video uploads. Use this with --export.')
-    parser.add_argument('--zip', action='store_true', help='If outputting to a zip file of JPEGs instead of a folder of videos.')
-    config = parser.parse_args()
+# Capture images from a PSD file after it is written to disk.
+async def cli_psd_capture(config):
+    await psd_capture(**vars(config))
+
+async def main(config):
     if config.web:
         config.container = 'mp4'
         config.codec = 'avc1'
@@ -626,22 +550,16 @@ async def async_main():
         else:
             config.frames = Path(f'{time.time_ns()}')
     config.frames = Path(config.frames)
-    print('Press Ctrl+C here to stop at any time')
+    logging.info('Press Ctrl+C here to stop at any time')
     if config.export:
         if no_frames:
-            print('--frames or --psd-file must be specified for export')
+            logging.info('--frames or --psd-file must be specified for export')
         else:
-            run_export(config)
+            cli_export(config)
     elif config.sai:
-        await run_sai_capture(config)
+        await cli_sai_capture(config)
     elif config.psd_file is not None:
         config.psd_file = Path(config.psd_file)
-        await run_psd_capture(config)
+        await cli_psd_capture(config)
     else:
-        await run_screen_capture(config)
-
-def main():
-    asyncio.run(async_main())
-
-if __name__ == '__main__':
-    main()
+        await cli_screen_capture(config)

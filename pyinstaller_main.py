@@ -1,3 +1,2 @@
-from art_timelapse.art_timelapse import main
-if __name__ == '__main__':
-    main()
+from art_timelapse.main import main
+main()

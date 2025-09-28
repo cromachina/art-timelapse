@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "art-timelapse"
-version = "1.3.1"
+version = "2.0.0"
 authors = [
     { name = "cromachina" }
 ]
@@ -35,7 +35,7 @@ dev = [
 "Homepage" = "https://github.com/cromachina/art-timelapse"
 
 [project.scripts]
-art-timelapse = "art_timelapse.art_timelapse:main"
+art-timelapse = "art_timelapse.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
