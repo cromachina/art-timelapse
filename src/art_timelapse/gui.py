@@ -234,7 +234,7 @@ class StatusArea(ttk.LabelFrame):
         else:
             font = ttk.font.nametofont('TkFixedFont')
             font.config(size=font_size)
-        self.text = ttk.Text(self, state=ttk.DISABLED, font=font)
+        self.text = ttk.Text(self, state=ttk.DISABLED, font=font, width=1, height=1)
         self.text.pack(fill=ttk.BOTH, expand=True)
 
     def append(self, text):
@@ -285,6 +285,7 @@ class Settings:
         int: ttk.IntVar,
         str: ttk.StringVar,
         bool: ttk.BooleanVar,
+        float: ttk.DoubleVar,
     }
 
     def __init__(self, file_name):
@@ -300,7 +301,7 @@ class Settings:
     def get_var(self, key, default):
         if key in self.vars:
             return self.vars.get(key)
-        var = Settings.var_types[type(default)](value=default)
+        var = Settings.var_types.get(type(default), ttk.Variable)(value=default)
         def save(*_args):
             self.data[key] = var.get()
         var.trace_add('write', save)
@@ -322,6 +323,9 @@ class App(asynctk.AsyncTk):
         super().__init__(*args, **kwargs)
         self.title('art-timelapse')
         self.settings = Settings('.art-timelapse')
+
+        self.win_size_var = self.settings.get_var('win_size', (600, 600))
+        self.geometry('{}x{}'.format(*self.win_size_var.get()))
 
         self.frames_file_var = self.settings.get_var('frames_file', '')
 
@@ -392,7 +396,6 @@ class App(asynctk.AsyncTk):
         meta_config = ttk.Frame(self)
         meta_config.pack(fill=ttk.X)
         ttk.Label(meta_config, text='Theme:').pack(side=ttk.LEFT)
-
         theme_box = ttk.Combobox(meta_config, state=ttk.READONLY)
         theme_var = self.settings.get_var('theme', 'darkly')
         theme_box.pack(side=ttk.LEFT)
@@ -416,6 +419,7 @@ class App(asynctk.AsyncTk):
         self.operation_task: asyncio.Task | None = None
 
     def cleanup(self):
+        self.win_size_var.set((self.winfo_width(), self.winfo_height()))
         self.settings.save()
         self.thread_running = False
         for task in [self.background_task, self.operation_task]:
