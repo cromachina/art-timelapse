@@ -487,6 +487,9 @@ class App(asynctk.AsyncTk):
         return lambda: self.run_operation(recording_mode, task, *args, **kwargs)
 
     async def record_sai(self):
+        if self.sai_proc is None:
+            logging.info("No valid SAI process found")
+            return
         frames_path = self.frames_file_var.get()
         container, codec = self.sai_recording_frame.get_format()
         image_size_limit = self.image_size_limit_var.get()
