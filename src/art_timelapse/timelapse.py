@@ -106,6 +106,10 @@ class WindowGrabber(asynctk.AsyncTk):
                 self.bind('<Motion>', self.scan_motion)
             self.bind('<ButtonPress-1>', self.scan_clicked)
             self.bind('<ButtonPress-3>', self.set_cancelled)
+            e = tk.Event()
+            e.x = self.winfo_pointerx()
+            e.y = self.winfo_pointery()
+            self.scan_motion(e)
 
     def make_rect(self, w=0, h=0, stipple='gray50'):
         return self.canvas.create_rectangle(0, 0, w, h, outline='', fill='black', stipple=stipple)
