@@ -8,26 +8,23 @@ Cutting dead air from the videos; Concatenating separate recordings together; Sp
 While it is possible to mitigate these issues when using OBS Studio, I wanted a more accurate solution that works sort of like Clip Studio's timelapse feature.
 By recording the end of each stroke of a drawing, you get the largest amount of information about the timelapse without any redundancy, which can end up creating compact videos with minimal editing.
 
-### Recording and exporting
-- The program will only record a new video frame after you have finished a click that had started in the target window/area.
-  - Because of this, you may leave the program running indefinitely and not have to worry about pausing recording.
-  - You do have to stop recording when done so that the last video or zip file is closed.
-  - Keystrokes will not create new video frames.
-- Specify `--frames <filename>` without an extension to write recorded data to a directory (or zip file). If not specified, it will use a timestamp as the file name.
-- By default, frames are recorded to one or more videos to be processed later. When the size of the captured image changes, a new video is cut (usually because most video formats cannot have variable size).
+### GUI usage
+- The default mode is to run a GUI and most options have tooltips.
+
+### Command line usage
+- Use `--cli` to run the program as a command line tool. Use `--help` to see all options.
+- Specify `--frames <folder>` recorded data to a directory. If not specified, it will use a timestamp as the file name.
 - The default video storage format is `webm` with `vp80` codec to have better color preservation (compared to `mp4`).
   - You may see a warning that `vp80` is not supported for `webm`. This appears to be a bug in OpenCV that you can ignore.
 - You can specify a custom `--container <suffix>` and fourcc `--codec <fourcc>` when recording or exporting, whatever is supported by OpenCV and FFMPEG, for example `--container mp4 --codec mp4v`.
   - Incompatible containers and codecs will display errors and might not produce any resulting video file.
 - If you specify `--web`, the `container` and `codec` are set to `mp4` and `avc1` respectively. This format is accepted by many websites for upload, but it can reduce color quality. This is best used when exporting (with `--export`). If you really need to save disk space, then recording with `--web` will be very efficient.
-- You can also record JPEGs to a zip file with `--zip` but I don't recommend this because it takes up a lot of space. This is how the program originally worked.
 - You can export the saved frame data with `--export`. By default the video will try to be made no longer than 60 seconds, like a typical timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to have no limit on the export length.
 
 | Format | Quality | Size (relative to MP4) | Estimated size (~25k 1000px frames recorded) |
 |--|--|--|--|
 | mp4 (avc1) | Some colors will look off from the original | 1x | 15 MB |
 | webm (vp80) | Colors look more accurate | 10x | 150 MB |
-| Zip file of JPEGs | High color accuracy | 100x-1000x | 1.5 GB |
 
 #### SAI memory capture
 - If using `--sai`, the program will read frames directly from the running SAI instance.
@@ -41,7 +38,7 @@ By recording the end of each stroke of a drawing, you get the largest amount of 
 - If using `--psd-file <filename>`, a frame will be captured every time the PSD file is finished being written to (such as after saving).
 - This mode will make a choppy looking timelapse, depending on how frequently you save your work, but the effect isn't terrible.
 #### Screen capture
-- This is the default behavior of the program, which is to capture an area of the screen.
+- This is the default behavior of the program when neither of the above options is specified, which is to capture an area of the screen.
 - When you run the program, it will ask you to click on the window which you want to start capturing.
   - If using Paint Tool SAI with Windows, click inside of the drawing area to automatically capture that subwindow.
   - If you are using Paint Tool SAI with Wine, you can use the `--drag-grab` option to drag a rectangular area to record.
@@ -50,7 +47,7 @@ By recording the end of each stroke of a drawing, you get the largest amount of 
 ### Examples
 Record from SAI's memory directly and store the outputs into a directory called `test`:
 ```
-art-timelapse --frames test --sai
+art-timelapse --cli --frames test --sai
 ```
 Interactive setup:
 ```
@@ -70,7 +67,7 @@ Finishing recording (pressed Ctrl+C).
 
 The export type is inferred from the `--frames` path:
 ```
-art-timelapse --frames test --sai --export --web
+art-timelapse --cli --frames test --sai --export --web
 ```
 Output:
 ```
@@ -102,7 +99,7 @@ You can find prebuilt executables in the releases page instead of going through 
   - Update `nix.conf` so you can use flakes:
     - `echo "extra-experimental-features = nix-command flakes" | sudo tee -a /etc/nix/nix.conf`
 - Run: `nix run github:cromachina/art-timelapse -- --help`
-- Run a specific version: `nix run github:cromachina/art-timelapse/v1.3.1 -- --help`
+- Run a specific version: `nix run github:cromachina/art-timelapse/v2.0.0 -- --help`
 - Optional: Consider using `system-manager` if you want to install in a persistent config file: https://github.com/numtide/system-manager
 
 ### Installing on NixOS
@@ -112,7 +109,7 @@ You can find prebuilt executables in the releases page instead of going through 
 - Example, add to your `configuration.nix` so you can run `art-timelapse` directly:
 ```nix
 environment.systemPackages = with pkgs; [
-  (builtins.getFlake "github:cromachina/art-timelapse/v1.3.1").packages.${pkgs.system}.default
+  (builtins.getFlake "github:cromachina/art-timelapse/v2.0.0").packages.${pkgs.system}.default
 ];
 ```
 
