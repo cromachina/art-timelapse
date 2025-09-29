@@ -3,6 +3,7 @@ import asyncio
 import time
 import tkinter as tk
 import logging
+import sys
 
 from PIL import Image, ImageOps, ImageTk
 from psd_tools import PSDImage
@@ -99,7 +100,10 @@ class WindowGrabber(asynctk.AsyncTk):
         else:
             logging.info('Click on a subwindow to start tracking. Right click to cancel.')
             self.canvas.delete(self.overlay)
-            self.bind('<Motion>', self.scan_motion)
+            if 'win' in sys.platform:
+                self.bind('<Motion>', self.scan_motion_win)
+            else:
+                self.bind('<Motion>', self.scan_motion)
             self.bind('<ButtonPress-1>', self.scan_clicked)
             self.bind('<ButtonPress-3>', self.set_cancelled)
 
@@ -128,11 +132,22 @@ class WindowGrabber(asynctk.AsyncTk):
         self.stop()
 
     def set_cancelled(self, event):
+        logging.info("Window grab cancelled")
         self.released(event)
         self.cancelled = True
 
     def scan_motion(self, event):
         window = pywinctl.getTopWindowAt(event.x, event.y)
+        self.set_rect(*window.rect)
+
+    def scan_motion_win(self, event):
+        window = pywinctl.getActiveWindow()
+        handle = window.getPID()
+        windows = pywinctl.getWindowsAt(event.x, event.y)
+        for sub in windows:
+            if sub.getPID() != handle:
+                window = sub
+                break
         self.set_rect(*window.rect)
 
     def scan_clicked(self, event):
@@ -146,13 +161,10 @@ class WindowGrabber(asynctk.AsyncTk):
         bbox = (*self.pos1, *self.pos2) if self.drag_area else None
         return window, bbox
 
-async def get_window_and_bbox(drag_grab, log=True):
+async def get_window_and_bbox(drag_grab):
     grabber = WindowGrabber(drag_grab)
     await grabber.async_main_loop()
-    result = grabber.get_window_and_bbox()
-    if result[0] is None and log:
-        logging.info("Window grab cancelled")
-    return result
+    return grabber.get_window_and_bbox()
 
 def get_root_window(window):
     pid = window.getPID()
@@ -171,11 +183,9 @@ async def get_window_from_pid(pid):
             result = window
     if result is None:
         logging.info('Could not find window automatically')
-        result, _ = await get_window_and_bbox(False, False)
+        result, _ = await get_window_and_bbox(False)
     if result is not None:
         result = get_root_window(result)
-    else:
-        logging.info("Window grab cancelled")
     return result
 
 # Handles output to a video file.
@@ -385,6 +395,7 @@ class InputTracker(EventTrackerBase):
 
     def stop(self):
         self.mouse_listener.stop()
+        self._wait_task.cancel()
         logging.info(f'Stopped tracking window: {self.target_window.title}')
 
 # Track a file and when it gets saved/closed.
