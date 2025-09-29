@@ -426,10 +426,10 @@ class FileTracker(FileSystemEventHandler, EventTrackerBase):
         logging.info(f'Stopped tracking file: {self.target_file}')
 
 # Filter a sequence of frame indices achieve a specific maximum video length.
-def filter_frames(export_time_limit, frames):
+def filter_frames(export_time_limit, frames, fps):
     if export_time_limit > 0:
         frame_count = len(frames)
-        target_frames = int(export_time_limit * FPS)
+        target_frames = int(export_time_limit * fps)
         if frame_count > target_frames:
             nth = frame_count / target_frames
             return [frames[round(i * nth)] for i in range(target_frames)]
@@ -446,7 +446,7 @@ def export(progress_iter, export_time_limit, fps, frames, container, codec, outp
             return
         last_frame = Image.fromarray(reader.get_last_frame())
         data_frames = list(range(reader.frame_count))
-        data_frames = filter_frames(export_time_limit, data_frames)
+        data_frames = filter_frames(export_time_limit, data_frames, fps)
         index = 0
         with VideoWriter(output_path, reader.size, container, codec, fps=fps, log=True) as writer:
             writer.write(last_frame, False)
