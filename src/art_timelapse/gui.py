@@ -168,14 +168,26 @@ class ComboboxLabelRow(LabelRow):
             self.index_var = ttk.IntVar(value=0)
         self.combobox = ttk.Combobox(self, state=ttk.READONLY)
         self.combobox.pack(side=ttk.LEFT, fill=ttk.X, expand=True)
+        self.reentering = False
         self.combobox.bind('<<ComboboxSelected>>', self.on_selected)
+        self.index_var.trace_add('write', self.var_trace)
         self.set_values(values)
 
+    def var_trace(self, *args):
+        if self.reentering:
+            return
+        if isinstance(self.index_var, ttk.StringVar):
+            self.combobox.set(self.index_var.get())
+        else:
+            self.combobox.current(self.index_var.get())
+
     def on_selected(self, _event):
+        self.reentering = True
         if isinstance(self.index_var, ttk.StringVar):
             self.index_var.set(self.combobox.get())
         else:
             self.index_var.set(self.combobox.current())
+        self.reentering = False
 
     def get_index(self):
         return self.combobox.current()
@@ -217,7 +229,6 @@ class VideoConfigFrame(ttk.Frame):
         self.custom_codec_entry = EntryLabelRow(self, 'Custom codec', textvariable=self.custom_codec_var)
         tooltip.ToolTip(self.custom_codec_entry, 'If you want to use a codec that is not listed above, whatever is supported by OpenCV and FFMPEG.')
         self.button = ButtonRow(self, textvariable=self.button_text)
-        self.video_type_box.combobox.current(0)
 
     def get_format(self):
         video_format = self.video_types[self.video_type_var.get()][1]
