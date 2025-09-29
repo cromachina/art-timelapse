@@ -21,6 +21,14 @@ FPS = 30
 
 Vec2 = tuple[int, int]
 
+def expand_path(path):
+    path = Path(path)
+    try:
+        path = path.expanduser()
+    except:
+        pass
+    return path
+
 def even_dim(a:int) -> int:
     return a if a % 2 == 0 else a - 1
 
@@ -178,7 +186,7 @@ async def get_window_from_pid(pid):
 class VideoWriter:
     def __init__(self, file_path, size, container, codec, log=False):
         self.size = even_size(size)
-        self.file_path = Path(file_path).with_suffix(f'.{container}')
+        self.file_path = expand_path(file_path).with_suffix(f'.{container}')
         if log:
             logging.info(f'Writing to video: {self.file_path} ({codec})')
         self.writer = cv2.VideoWriter(str(self.file_path), cv2.VideoWriter.fourcc(*codec), FPS, self.size)
@@ -206,7 +214,7 @@ class VideoWriter:
 # Handles input from a video file.
 class VideoReader:
     def __init__(self, file_path):
-        self.video_reader = cv2.VideoCapture(str(file_path))
+        self.video_reader = cv2.VideoCapture(str(expand_path(file_path)))
 
     def __enter__(self):
         return self
@@ -232,7 +240,7 @@ class VideoSequenceWriter:
     def __init__(self, frames, container, codec):
         self.container = container
         self.codec = codec
-        self.folder = Path(frames)
+        self.folder = expand_path(frames)
         logging.info(f'Writing to frames folder: {self.folder}; container: {container}; codec: {codec}')
         self.folder.mkdir(parents=True, exist_ok=True)
         self.writer = None
@@ -264,7 +272,7 @@ class VideoSequenceWriter:
 # Read a folder of mp4 files as if it were a single contiguous file.
 class VideoSequenceReader:
     def __init__(self, folder):
-        self.folder = Path(folder)
+        self.folder = expand_path(folder)
         logging.info(f'Reading from frames folder: {self.folder}')
         self.reader = None
         self.frame_count = 0
@@ -388,7 +396,7 @@ class FileTracker(FileSystemEventHandler, EventTrackerBase):
     def __init__(self, target_file):
         FileSystemEventHandler.__init__(self)
         EventTrackerBase.__init__(self)
-        self.target_file = Path(target_file)
+        self.target_file = expand_path(target_file)
         self.observer = Observer()
         self.start()
 
@@ -417,7 +425,7 @@ def filter_frames(export_time_limit, frames):
     return frames
 
 def export(progress_iter, export_time_limit, frames, container, codec, output_path='', **_):
-    frames = Path(frames)
+    frames = expand_path(frames)
     if output_path == '':
         output_path = frames
     if not (frames.exists() and frames.is_dir()):
