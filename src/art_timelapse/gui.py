@@ -6,6 +6,7 @@ import traceback
 import time
 
 import ttkbootstrap as ttk
+from ttkbootstrap import tooltip
 from tkinter import filedialog
 
 from . import asynctk, timelapse, sai
@@ -201,17 +202,20 @@ class VideoConfigFrame(ttk.Frame):
         super().__init__(master)
         self.pack(fill=ttk.X)
         self.video_types = [
-            ('mp4/avc1', ('mp4', 'avc1')),
-            ('webm/vp80', ('webm', 'vp80')),
-            ('Use custom', None)
+            ('mp4/avc1 - Works with most websites, including Twitter', ('mp4', 'avc1')),
+            ('webm/vp80 - Better color quality, but larger file size', ('webm', 'vp80')),
+            ('Use custom container/codec', None)
         ]
         self.video_type_var = shared_vars['video_type_var']
         self.custom_container_var = shared_vars['custom_container_var']
         self.custom_codec_var = shared_vars['custom_codec_var']
         self.button_text = shared_vars['button_text']
         self.video_type_box = ComboboxLabelRow(self, 'Video type', values=[t[0] for t in self.video_types], index_variable=self.video_type_var)
+        tooltip.ToolTip(self.video_type_box, 'Useful container/codec presets.')
         self.custom_container_entry = EntryLabelRow(self, 'Custom container', textvariable=self.custom_container_var)
+        tooltip.ToolTip(self.custom_container_entry, 'If you want to use a container that is not listed above, whatever is supported by OpenCV and FFMPEG.')
         self.custom_codec_entry = EntryLabelRow(self, 'Custom codec', textvariable=self.custom_codec_var)
+        tooltip.ToolTip(self.custom_codec_entry, 'If you want to use a codec that is not listed above, whatever is supported by OpenCV and FFMPEG.')
         self.button = ButtonRow(self, textvariable=self.button_text)
         self.video_type_box.combobox.current(0)
 
@@ -255,10 +259,14 @@ class AsyncWidgetLogger(logging.Handler):
         self.loop.call_soon_threadsafe(self.widget.append, self.format(record))
 
 def make_frames_entry(master, textvariable=None):
-    return FilePickerEntry(master, 'Frames path', mode='dir', textvariable=textvariable)
+    frame = FilePickerEntry(master, 'Frames path', mode='dir', textvariable=textvariable)
+    tooltip.ToolTip(frame, 'Folder where video recording cuts are saved.')
+    return frame
 
 def make_image_size_limit_box(master, textvariable=None):
-    return EntryLabelRow(master, 'Image size limit (px)', numbers=True, textvariable=textvariable)
+    frame = EntryLabelRow(master, 'Image size limit (px)', numbers=True, textvariable=textvariable)
+    tooltip.ToolTip(frame, 'Captured images will be resized to this if larger than this value.')
+    return frame
 
 def make_notebook_frame(notebook, text):
     frame = ttk.Frame(notebook)
@@ -354,6 +362,7 @@ class App(asynctk.AsyncTk):
         StatusLabelRow(sai_frame, 'SAI version detected:', textvariable=self.sai_version_status_var)
         self.sai_canvas_var = self.settings.get_var('sai_canvas', '')
         self.sai_canvas_box = ComboboxLabelRow(sai_frame, 'Canvas', index_variable=self.sai_canvas_var)
+        tooltip.ToolTip(self.sai_canvas_box, 'Select which open SAI canvas to record from.')
         self.image_size_limit_var = self.settings.get_var('image_size_limit', 1000)
         make_image_size_limit_box(sai_frame, textvariable=self.image_size_limit_var)
         self.sai_recording_frame = VideoConfigFrame(sai_frame, recording_vars)
@@ -361,7 +370,8 @@ class App(asynctk.AsyncTk):
         psd_frame = make_notebook_frame(notebook, 'PSD Recording')
         make_frames_entry(psd_frame, self.frames_file_var)
         self.psd_file_var = self.settings.get_var('psd_file_var', '')
-        FilePickerEntry(psd_frame, 'PSD file', mode='open', filetypes=[('PSD', '.psd .psb'), ('Any', '*.*')], textvariable=self.psd_file_var)
+        psd_file_entry = FilePickerEntry(psd_frame, 'PSD file', mode='open', filetypes=[('PSD', '.psd .psb'), ('Any', '*.*')], textvariable=self.psd_file_var)
+        tooltip.ToolTip(psd_file_entry, 'PSD/PSB file to record from as it is saved to disk.')
         make_image_size_limit_box(psd_frame, textvariable=self.image_size_limit_var)
         self.psd_recording_frame = VideoConfigFrame(psd_frame, recording_vars)
 
@@ -371,17 +381,22 @@ class App(asynctk.AsyncTk):
         self.screen_recording_frame.button.forget()
         self.screen_click_button_var = StackStringVar(value='Click window grab and start recording')
         self.screen_click_button = ButtonRow(screen_frame, textvariable=self.screen_click_button_var)
+        tooltip.ToolTip(self.screen_click_button, 'Captures the subwindow that was clicked on. Automatically adjusts capture size to the subwindow.')
         self.screen_grab_button_var = StackStringVar(value='Drag area grab and start recording')
         self.screen_grab_button = ButtonRow(screen_frame, textvariable=self.screen_grab_button_var)
+        tooltip.ToolTip(self.screen_grab_button, 'Captures a fixed area of the subwindow. Drag a rectangle like a screenshot tool.')
 
         export_frame = make_notebook_frame(notebook, 'Export Video')
         make_frames_entry(export_frame, self.frames_file_var)
         self.export_file_var = self.settings.get_var('export_file_var', '')
-        FilePickerEntry(export_frame, 'Export file', mode='save', textvariable=self.export_file_var)
+        export_file_entry = FilePickerEntry(export_frame, 'Export file', mode='save', textvariable=self.export_file_var)
+        tooltip.ToolTip(export_file_entry, 'Path to the video file to export to. Extension is determined by video type. Leave blank to automatically use the frames path.')
         self.export_time_limit_var = self.settings.get_var('export_time_limit', 60)
-        EntryLabelRow(export_frame, 'Export time limit', numbers=True, textvariable=self.export_time_limit_var)
+        export_time_limit_entry = EntryLabelRow(export_frame, 'Export time limit', numbers=True, textvariable=self.export_time_limit_var)
+        tooltip.ToolTip(export_time_limit_entry, 'Maximum time the exported video should be (based on 30 FPS). Enter 0 or leave blank for no time limit.')
         self.export_use_recording_var = self.settings.get_var('export_user_recording', True)
-        CheckbuttonLabelRow(export_frame, 'Use recording video type', variable=self.export_use_recording_var)
+        export_user_reocrding = CheckbuttonLabelRow(export_frame, 'Use recording video type', variable=self.export_use_recording_var)
+        tooltip.ToolTip(export_user_reocrding, 'Use the same video options as the recording tabs and ignore the below settings.')
         self.export_config_frame = VideoConfigFrame(export_frame, export_vars)
         self.export_progress = ProgressRow(export_frame)
 
