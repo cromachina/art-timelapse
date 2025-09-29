@@ -4,7 +4,7 @@ import time
 import tkinter as tk
 import logging
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageTk
 from psd_tools import PSDImage
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -20,6 +20,13 @@ from . import asynctk, sai
 FPS = 30
 
 Vec2 = tuple[int, int]
+
+# MSS has issues being created and destroyed multiple times on Linux.
+sct = mss()
+
+def grab(sct, bbox):
+    img = sct.grab(bbox)
+    return Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
 
 def expand_path(path):
     path = Path(path)
@@ -51,110 +58,99 @@ def nth_counter(nth):
             counter -= 1
             yield False
 
-def set_rect_params(rect, width, height, alpha):
-    rect.overrideredirect(1)
-    rect.geometry(f'{width}x{height}+0+0')
-    rect.wait_visibility()
-    rect.configure(bg='black')
-    rect.attributes('-topmost', True)
-    rect.attributes('-alpha', alpha)
-
-def make_rect(parent, width, height):
-    rect = tk.Toplevel(parent)
-    set_rect_params(rect, width, height, 0.5)
-    return rect
-
 def get_spanned_rect(pos1, pos2):
     p1x, p1y = pos1
     p2x, p2y = pos2
     return min(p1x, p2x), min(p1y, p2y), max(p1x, p2x), max(p1y, p2y)
 
-async def get_bbox_from_drag_rect():
-    win = asynctk.AsyncTk()
-    sw = win.winfo_screenwidth()
-    sh = win.winfo_screenheight()
-    set_rect_params(win, sw, sh, 0.25)
-    top_rect = make_rect(win, 0, 0)
-    left_rect = make_rect(win, 0, 0)
-    right_rect = make_rect(win, 0, 0)
-    bottom_rect = make_rect(win, 0, 0)
-    pos1 = None
-    pos2 = None
-    cancelled = False
+class WindowGrabber(asynctk.AsyncTk):
+    def __init__(self, drag_area, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.drag_area = drag_area
+        self.overrideredirect(True)
+        mon = sct.monitors[0]
+        self.screen = grab(sct, mon)
+        self.sw = mon['width']
+        self.sh = mon['height']
+        self.geometry(f'{self.sw}x{self.sh}+0+0')
+        self.attributes('-topmost', True)
+        self.screen = ImageTk.PhotoImage(self.screen, master=self)
+        self.canvas = tk.Canvas(self, width=self.sw, height=self.sh)
+        self.canvas.place(x=0, y=0)
+        self.canvas.create_image((0, 0), anchor=tk.NW, image=self.screen)
+        self.overlay = self.make_rect(self.sw, self.sh, 'gray12')
+        self.top_rect = self.make_rect()
+        self.left_rect = self.make_rect()
+        self.right_rect = self.make_rect()
+        self.bottom_rect = self.make_rect()
+        self.outline = self.canvas.create_rectangle(0, 0, 0, 0, outline='#7777ff', fill='')
+        self.pos1 = None
+        self.pos2 = None
+        self.window = None
+        self.cancelled = False
+        self.lift()
 
-    def win_motion(event):
-        nonlocal pos2
-        if pos1 is not None:
-            pos2 = (event.x, event.y)
-            lx, ly, rx, ry = get_spanned_rect(pos1, pos2)
-            top_rect.geometry(f'{sw}x{ly}+0+0')
-            left_rect.geometry(f'{lx}x{sh - ly}+0+{ly}')
-            right_rect.geometry(f'{sw - rx}x{sh - ly}+{rx}+{ly}')
-            bottom_rect.geometry(f'{rx - lx}x{sh - ry}+{lx}+{ry}')
+        if drag_area:
+            logging.info('Click on a subwindow to start tracking. Right click to cancel.')
+            self.bind('<Motion>', self.drag_motion)
+            self.bind('<ButtonPress-1>', self.drag_clicked)
+            self.bind('<ButtonRelease-1>', self.released)
+            self.bind('<ButtonPress-3>', self.set_cancelled)
+        else:
+            logging.info('Click on a subwindow to start tracking. Right click to cancel.')
+            self.canvas.delete(self.overlay)
+            self.bind('<Motion>', self.scan_motion)
+            self.bind('<ButtonPress-1>', self.scan_clicked)
+            self.bind('<ButtonPress-3>', self.set_cancelled)
 
-    def set_clicked(event):
-        nonlocal pos1
-        win.attributes('-alpha', 0)
-        pos1 = (event.x, event.y)
-        win_motion(event)
+    def make_rect(self, w=0, h=0, stipple='gray50'):
+        return self.canvas.create_rectangle(0, 0, w, h, outline='', fill='black', stipple=stipple)
 
-    def set_released(_event):
-        win.destroy()
-        win.stop()
+    def set_rect(self, lx, ly, rx, ry):
+        self.canvas.coords(self.outline, lx, ly, rx, ry)
+        self.canvas.coords(self.top_rect, 0, 0, self.sw, ly)
+        self.canvas.coords(self.left_rect, 0, ly, lx, ry)
+        self.canvas.coords(self.right_rect, rx, ly, self.sw, ry)
+        self.canvas.coords(self.bottom_rect, 0, ry, self.sw, self.sh)
 
-    def set_cancelled(_event):
-        nonlocal cancelled
-        win.destroy()
-        win.stop()
-        cancelled = True
+    def drag_motion(self, event):
+        if self.pos1 is not None:
+            self.pos2 = (event.x, event.y)
+            self.set_rect(*get_spanned_rect(self.pos1, self.pos2))
 
-    win.bind('<Motion>', win_motion)
-    win.bind('<ButtonPress-1>', set_clicked)
-    win.bind('<ButtonRelease-1>', set_released)
-    win.bind('<ButtonPress-3>', set_cancelled)
-    win.lift()
-    await win.async_main_loop()
-    if cancelled:
-        return None
-    else:
-        return *pos1, *pos2
+    def drag_clicked(self, event):
+        self.canvas.delete(self.overlay)
+        self.pos1 = (event.x, event.y)
+        self.drag_motion(event)
 
-async def get_window_from_click():
-    logging.info('Click on a subwindow to start tracking. Right click to cancel.')
-    window = None
-    loop = asyncio.get_running_loop()
-    event = asyncio.Event()
-    def notify():
-        mouse_listener.stop()
-        loop.call_soon_threadsafe(event.set)
-    def on_click(x, y, button, is_pressed):
-        nonlocal window
-        if is_pressed:
-            if button == pynput.mouse.Button.left:
-                window = pywinctl.getTopWindowAt(x, y)
-                notify()
-            elif button == pynput.mouse.Button.right:
-                notify()
-    mouse_listener = pynput.mouse.Listener(on_click=on_click)
-    mouse_listener.start()
-    await event.wait()
-    mouse_listener.join()
-    return window
+    def released(self, _event):
+        self.destroy()
+        self.stop()
 
-async def drag_window_and_bbox():
-    logging.info('Click and drag on a window to track that area. Right click to cancel.')
-    bbox = await get_bbox_from_drag_rect()
-    if bbox is None:
-        return None, None
-    window = pywinctl.getTopWindowAt(*bbox[:2])
-    return window, bbox
+    def set_cancelled(self, event):
+        self.released(event)
+        self.cancelled = True
 
-async def get_window_and_bbox(drag_grab):
-    if drag_grab:
-        result = await drag_window_and_bbox()
-    else:
-        result = await get_window_from_click(), None
-    if result[0] is None:
+    def scan_motion(self, event):
+        window = pywinctl.getTopWindowAt(event.x, event.y)
+        self.set_rect(*window.rect)
+
+    def scan_clicked(self, event):
+        self.pos1 = event.x, event.y
+        self.released(event)
+
+    def get_window_and_bbox(self):
+        if self.cancelled:
+            return None, None
+        window = pywinctl.getTopWindowAt(*self.pos1)
+        bbox = (*self.pos1, *self.pos2) if self.drag_area else None
+        return window, bbox
+
+async def get_window_and_bbox(drag_grab, log=True):
+    grabber = WindowGrabber(drag_grab)
+    await grabber.async_main_loop()
+    result = grabber.get_window_and_bbox()
+    if result[0] is None and log:
         logging.info("Window grab cancelled")
     return result
 
@@ -175,7 +171,7 @@ async def get_window_from_pid(pid):
             result = window
     if result is None:
         logging.info('Could not find window automatically')
-        result = await get_window_from_click()
+        result, _ = await get_window_and_bbox(False, False)
     if result is not None:
         result = get_root_window(result)
     else:
@@ -452,10 +448,6 @@ def export(progress_iter, export_time_limit, fps, frames, container, codec, outp
 def cli_export(config):
     export(tqdm.tqdm, **vars(config))
 
-def grab(sct, bbox):
-    img = sct.grab(bbox)
-    return Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
-
 def sai_version_check(sai_proc):
     if not sai_proc.is_sai_version_compatible():
         logging.info('Warning: Capture may not work correctly')
@@ -516,9 +508,9 @@ async def cli_sai_capture(config):
         await sai_capture(sai_proc, canvas, **vars(config))
 
 async def screen_capture(window, bbox, frames, container, codec, **_):
-    with VideoSequenceWriter(frames, container, codec) as writer, mss() as sct, InputTracker(window, bbox) as tracker:
+    with VideoSequenceWriter(frames, container, codec) as writer, InputTracker(window, bbox) as tracker:
         async for _ in tracker.get_event_stream():
-            img = grab(sct, window.bbox if bbox is None else bbox)
+            img = grab(sct, window.rect if bbox is None else bbox)
             writer.write(img)
 
 # Capture a window's rectangular subregion or subwindow.
