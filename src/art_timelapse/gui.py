@@ -130,10 +130,10 @@ class EntryLabelRow(LabelRow):
         self.entry.config(state=ttk.NORMAL if state else ttk.DISABLED)
 
 def get_nearest_dir(path):
-    path = Path(path).absolute()
+    path = timelapse.expand_path(path).absolute()
     if path.is_dir():
         return path
-    for p in Path(path).absolute().parents:
+    for p in path.parents:
         if p.is_dir():
             return p
     return Path('.')
