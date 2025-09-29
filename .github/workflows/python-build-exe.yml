@@ -31,5 +31,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: executable-${{ matrix.os }}
+          name: art-timelapse-${{ matrix.os }}-${{ run-name }}
           path: ./dist/**/*
