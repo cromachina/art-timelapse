@@ -184,12 +184,12 @@ async def get_window_from_pid(pid):
 
 # Handles output to a video file.
 class VideoWriter:
-    def __init__(self, file_path, size, container, codec, log=False):
+    def __init__(self, file_path, size, container, codec, fps=FPS, log=False):
         self.size = even_size(size)
         self.file_path = expand_path(file_path).with_suffix(f'.{container}')
         if log:
             logging.info(f'Writing to video: {self.file_path} ({codec})')
-        self.writer = cv2.VideoWriter(str(self.file_path), cv2.VideoWriter.fourcc(*codec), FPS, self.size)
+        self.writer = cv2.VideoWriter(str(self.file_path), cv2.VideoWriter.fourcc(*codec), fps, self.size)
 
     def __enter__(self):
         return self
@@ -424,7 +424,7 @@ def filter_frames(export_time_limit, frames):
             return [frames[round(i * nth)] for i in range(target_frames)]
     return frames
 
-def export(progress_iter, export_time_limit, frames, container, codec, output_path='', **_):
+def export(progress_iter, export_time_limit, fps, frames, container, codec, output_path='', **_):
     frames = expand_path(frames)
     if output_path == '':
         output_path = frames
@@ -437,7 +437,7 @@ def export(progress_iter, export_time_limit, frames, container, codec, output_pa
         data_frames = list(range(reader.frame_count))
         data_frames = filter_frames(export_time_limit, data_frames)
         index = 0
-        with VideoWriter(output_path, reader.size, container, codec, log=True) as writer:
+        with VideoWriter(output_path, reader.size, container, codec, fps=fps, log=True) as writer:
             writer.write(last_frame, False)
             for frame in progress_iter(data_frames, unit='frames'):
                 while index < frame:

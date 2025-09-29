@@ -11,6 +11,16 @@ from tkinter import filedialog
 
 from . import asynctk, timelapse, sai
 
+class DefaultIntVar(ttk.IntVar):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def get(self):
+        try:
+            return super().get()
+        except:
+            return 0
+
 class StackStringVar(ttk.StringVar):
     def __init__(self, *args, **kwargs):
         self.stack = []
@@ -301,7 +311,7 @@ def auto_size_label_rows(master):
 
 class Settings:
     var_types = {
-        int: ttk.IntVar,
+        int: DefaultIntVar,
         str: ttk.StringVar,
         bool: ttk.BooleanVar,
         float: ttk.DoubleVar,
@@ -405,6 +415,9 @@ class App(asynctk.AsyncTk):
         self.export_time_limit_var = self.settings.get_var('export_time_limit', 60)
         export_time_limit_entry = EntryLabelRow(export_frame, 'Export time limit', numbers=True, textvariable=self.export_time_limit_var)
         tooltip.ToolTip(export_time_limit_entry, 'Maximum time the exported video should be (based on 30 FPS). Enter 0 or leave blank for no time limit.')
+        self.export_fps_var = self.settings.get_var('export_fps', 30)
+        export_fps_entry = EntryLabelRow(export_frame, 'Export FPS', numbers=True, textvariable=self.export_fps_var)
+        tooltip.ToolTip(export_fps_entry, 'Set the FPS of the exported video. 30 is a common default. Lower FPS is better for PSD recording exports (like 5 FPS).')
         self.export_use_recording_var = self.settings.get_var('export_user_recording', True)
         export_user_reocrding = CheckbuttonLabelRow(export_frame, 'Use recording video type', variable=self.export_use_recording_var)
         tooltip.ToolTip(export_user_reocrding, 'Use the same video options as the recording tabs and ignore the below settings.')
@@ -544,6 +557,7 @@ class App(asynctk.AsyncTk):
     async def export(self):
         frames_path = self.frames_file_var.get()
         export_time_limit = self.export_time_limit_var.get()
+        export_fps = self.export_fps_var.get()
         if self.export_use_recording_var.get():
             container, codec = self.sai_recording_frame.get_format()
         else:
@@ -557,7 +571,7 @@ class App(asynctk.AsyncTk):
                     return
             self.thread_running = False
         self.thread_running = True
-        await asyncio.to_thread(timelapse.export, progress_kill_check, export_time_limit, frames_path, container, codec, output_path)
+        await asyncio.to_thread(timelapse.export, progress_kill_check, export_time_limit, export_fps, frames_path, container, codec, output_path)
 
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
         logging.exception("".join(traceback.format_exception(exc_type, exc_value, exc_tb)))

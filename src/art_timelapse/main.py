@@ -17,6 +17,7 @@ async def async_main():
     parser.add_argument('--image-size-limit', type=int, default=1000, help='Limit the resolution from a PSD or SAI capture.')
     parser.add_argument('--export', action='store_true', help='Export the given frame data file to an MP4, or concatenate a video directory. Figures out what to do based on the frames path.')
     parser.add_argument('--export-time-limit', type=float, default=60, help='Compress the play time of the exported MP4 file to be no longer than the given seconds. Default is 60 seconds. Set to 0 for uncompressed play time.')
+    parser.add_argument('--export-fps', type=int, default=30, help='Sets the FPS of the export video. Default 30. Lower FPS is better for PSD recorded exports (like 5 FPS).')
     parser.add_argument('--drag-grab', action='store_true', help='Drag a rectangle over a window to capture that area. Useful for when a subwindow cannot be captured by click.')
     parser.add_argument('--container', default='webm', help='The format to store video in, for example "webm", "mp4", "avi". Default for storage is webm with VP8 codec for better color quality, but it takes up more space than mp4 with avc1.')
     parser.add_argument('--codec', default='vp80', help='The fourcc for the video container\'s codec. Default for storage is VP8 (vp80).')
