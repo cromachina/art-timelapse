@@ -77,18 +77,26 @@ Writing to video: test.mp4 (avc1)
 100%|████████████████████████████| 26/26 [00:00<00:00, 184.61frames/s]
 ```
 
-### Windows prebuilt executable
+### Windows prebuilt executable (pyinstaller)
 You can find prebuilt executables in the releases page instead of going through the source installation https://github.com/cromachina/art-timelapse/releases. It may still depend on ffmpeg (https://ffmpeg.org/download.html) being installed separately and added to the exe directory. One caveat of using the prebuilt pyinstaller executable is that it has a pretty slow startup time.
 
 ### Installing from source on Windows
-- Download the source to some location.
+- This method starts faster than the pyinstaller executable.
 - Install python: https://www.python.org/downloads/ (add to your system PATH)
+  - Alternatively: `winget install python`
 - Install ffmpeg: https://ffmpeg.org/download.html
-- In the source directory, create a virtual environment: `python -m venv --system-site-packages venv`
-- Activate the virtual environment: `venv/bin/activate.bat`
-- Install the project: `pip install -e .`
-- `art-timelapse` is now available in the current shell. You have to reactivate the venv if you open a new shell.
-- See arguments with: `art-timelapse --help`
+  - Alternatively: `winget install ffmpeg`
+- With virtual environment:
+  - Download the source to some location.
+  - In the source directory, create a virtual environment: `python -m venv --system-site-packages venv`
+  - Activate the virtual environment: `venv/bin/activate`
+  - Install the project: `pip install -e .`
+  - `art-timelapse` is now available in the current shell. You have to reactivate the venv if you open a new shell.
+- Global install:
+  - `pip install https://github.com/cromachina/art-timelapse/archive/refs/heads/main.zip`
+  - The Python `Scripts` directory must be in your environment variables PATH to be able to run from any shell, for example:
+    - `C:\Users\<Your-Username>\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\Scripts`
+- Run with: `art-timelapse`
 - This can be done similarly on Linux and MacOS, but you should use the Nix method instead.
 
 ### Installing with Nix on Ubuntu (or other Linux distros)
@@ -98,14 +106,14 @@ You can find prebuilt executables in the releases page instead of going through 
   - Refresh the group for your session: `newgrp nix-users`
   - Update `nix.conf` so you can use flakes:
     - `echo "extra-experimental-features = nix-command flakes" | sudo tee -a /etc/nix/nix.conf`
-- Run: `nix run github:cromachina/art-timelapse -- --help`
-- Run a specific version: `nix run github:cromachina/art-timelapse/v2.0.0 -- --help`
+- Run: `nix run github:cromachina/art-timelapse`
+- Run a specific version: `nix run github:cromachina/art-timelapse/v2.0.0`
 - Optional: Consider using `system-manager` if you want to install in a persistent config file: https://github.com/numtide/system-manager
 
 ### Installing on NixOS
 - Make sure experimental features are enabled for `nix-command` and `flakes`.
-- Example, run from source directory: `nix run .# -- --help`
-- Example, run from git: `nix run github:cromachina/art-timelapse -- --help`
+- Example, run from source directory: `nix run .#`
+- Example, run from git: `nix run github:cromachina/art-timelapse`
 - Example, add to your `configuration.nix` so you can run `art-timelapse` directly:
 ```nix
 environment.systemPackages = with pkgs; [
