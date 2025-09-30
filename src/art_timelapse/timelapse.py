@@ -472,24 +472,20 @@ def export(progress_iter, export_time_limit, fps, frames, container, codec, outp
 def cli_export(config):
     export(tqdm.tqdm, **vars(config))
 
-def sai_version_check(sai_proc):
-    if not sai_proc.is_sai_version_compatible():
-        logging.info('Warning: Capture may not work correctly')
-        res = input('Continue? [y/N]').lower()
-        return res.startswith('y')
-    return True
-
 def select_canvas(sai_proc):
     while True:
         canvas_list = sai_proc.get_canvas_list()
         if len(canvas_list) == 0:
             logging.info('No open canvases detected.')
             return None
-        logging.info('Select a canvas to record (Ctrl+C to cancel):')
+        logging.info('Select a canvas to record (enter nothing to cancel):')
         for i, canvas in zip(range(len(canvas_list)), canvas_list):
             logging.info(f'[{i + 1}] {canvas.get_name()} ({canvas.get_short_path()})')
         res = input(f'Enter index [1-{len(canvas_list)}]:')
         try:
+            if res == '':
+                logging.info('Selection cancelled')
+                return None
             res = int(res)
             canvas = canvas_list[res - 1]
         except ValueError:
@@ -497,6 +493,7 @@ def select_canvas(sai_proc):
         except IndexError:
             logging.info('Index out of range, trying again')
         else:
+            logging.info(f'Selected canvas: {canvas.get_name()} ({canvas.get_short_path()})')
             return canvas
 
 def is_different_image(a, b):
@@ -524,8 +521,6 @@ async def sai_capture(sai_proc, canvas, image_size_limit, frames, container, cod
 # Capture images directly from SAI.
 async def cli_sai_capture(config):
     with sai.SAI() as sai_proc:
-        if not sai_version_check(sai_proc):
-            return
         canvas = select_canvas(sai_proc)
         if canvas is None:
             return

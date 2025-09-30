@@ -3,10 +3,10 @@ import hashlib
 import sys
 from functools import reduce
 from operator import mul
+import logging
 
 import psutil
 from PyMemoryEditor import OpenProcess
-from PyMemoryEditor.process import util
 import numpy as np
 
 def trim_null(data):
@@ -70,7 +70,7 @@ if 'win' in sys.platform:
     psapi = ctypes.WinDLL('Psapi.dll')
     k32 = ctypes.windll.kernel32
 
-    def get_base_address(pid):
+    def get_base_address_windows(pid:int) -> int:
         PROCESS_ALL_ACCESS = 0x1f0fff
         process_handle = k32.OpenProcess(
             PROCESS_ALL_ACCESS,
@@ -94,11 +94,11 @@ def register_sai_api(api):
     sai_api_lookup[api.exe_hash] = api
     return api
 
-def get_sai_api(hash):
-    result = sai_api_lookup.get(hash)
-    if result is None:
-        result = sorted(sai_api_lookup.values(), key=lambda x: x.__name__)[-1]
-    return result
+def get_sai_api(exe_hash):
+    return sai_api_lookup.get(exe_hash)
+
+def get_sai_api_list():
+    return sorted(sai_api_lookup.values(), key=lambda x: x.__name__)
 
 pad_index = 0
 def pad(size):
@@ -265,34 +265,103 @@ class SAIv2_API_2024_11_23(SAIv2_API_Base):
             (0x4ac, 'short_path', ctypes.c_uint16 * 0x100)
         ])
 
-def get_pid_by_name(name):
+def get_pid_by_name(name:str) -> int | None:
     psutil.process_iter.cache_clear()
     for proc in psutil.process_iter(['pid', 'name']):
         if proc.name() == name:
             return proc.pid
     return None
 
-def find_running_sai_pid():
-    try:
-        return get_pid_by_name(SAIv1_API_Base.process_name) or get_pid_by_name(SAIv2_API_Base.process_name)
-    except:
+def find_running_sai_pid() -> int | None:
+    return get_pid_by_name(SAIv1_API_Base.process_name) or get_pid_by_name(SAIv2_API_Base.process_name)
+
+def get_region_data_by_name(proc:OpenProcess, name:str) -> tuple[str, int] | tuple[None, None]:
+    for region in proc.get_memory_regions():
+        path = region['struct'].Path.decode()
+        if name in path:
+            return path, region['address']
+    return None, None
+
+def get_base_address(proc:OpenProcess) -> int | None:
+    if 'win' in sys.platform:
+        return get_base_address_windows(proc.pid)
+    else: # linux
+        return get_region_data_by_name(proc, psutil.Process(proc.pid).name())[1]
+
+def get_exe_path(proc:OpenProcess) -> str:
+    psproc = psutil.Process(proc.pid)
+    if 'win' in sys.platform:
+        return psproc.exe()
+    else: # linux
+        return get_region_data_by_name(proc, psproc.name())[0]
+
+def get_exe_hash(proc:OpenProcess) -> str | None:
+    exe_path = get_exe_path(proc)
+    if not exe_path:
         return None
+    with open(exe_path, 'rb') as f:
+        return hashlib.file_digest(f, 'md5').hexdigest()
+
+# Used by GUI
+def get_sai_api_from_pid(pid, query_override=False):
+    with OpenProcess(pid=pid) as proc:
+        return get_sai_api_from_proc(proc, query_override)
+
+# Used by CLI
+def get_sai_api_from_proc(proc:OpenProcess, query_override=True):
+    exe_hash = get_exe_hash(proc)
+    found_api = get_sai_api(exe_hash)
+    compat = found_api is not None
+    if query_override and not compat:
+        while True:
+            logging.info('SAI version may not be compatible:')
+            logging.info('  Compatible versions:')
+            api_list = get_sai_api_list()
+            for i, api in zip(range(len(api_list)), api_list):
+                logging.info(f'[{i + 1}] {api.version_name}')
+                logging.info(f'        Exe hash: {api.exe_hash}')
+            logging.info(f'  Found exe hash: {exe_hash}')
+            logging.info('Select a version override (Ctrl+C to cancel).')
+            logging.info(f'Enter nothing to pick the latest version ({api_list[-1].version_name}).')
+            res = input(f'Enter index [1-{len(api_list)}]:')
+            try:
+                if res == '':
+                    api = api_list[-1]
+                else:
+                    res = int(res)
+                    api = api_list[res - 1]
+            except ValueError:
+                logging.info('Could not parse input, trying again')
+            except IndexError:
+                logging.info('Index out of range, trying again')
+            else:
+                logging.info(f'Selected version: {api.version_name}')
+                logging.info(f'Warning: Capture may not work correctly if version does not match.')
+                return api
+    else:
+        return found_api
 
 class SAI:
-    def __init__(self):
+    def __init__(self, override_api=None):
         self.proc = None
         pid = find_running_sai_pid()
         if pid is None:
             raise Exception('No SAI process detected.')
         self.proc = OpenProcess(pid=pid)
         self.psutil_proc = psutil.Process(pid=pid)
-        self.base_address = self.get_base_address()
-        self.api = get_sai_api(self.get_sai_exe_hash())(self.proc, self.base_address)
+        if override_api is None:
+            api = get_sai_api_from_proc(self.proc)
+        else:
+            api = override_api
+        self.api = api(self.proc, get_base_address(self.proc))
 
     def __enter__(self):
         return self
 
     def __exit__(self, *exc_args):
+        self.close()
+
+    def close(self):
         if self.proc is not None:
             self.proc.close()
 
@@ -301,46 +370,6 @@ class SAI:
 
     def get_pid(self):
         return self.proc.pid
-
-    def get_region_data_by_name(self, name):
-        for region in self.proc.get_memory_regions():
-            path = region['struct'].Path.decode()
-            if name in path:
-                return path, region['address']
-        return None
-
-    def get_base_address(self):
-        if 'win' in sys.platform:
-            return get_base_address(self.get_pid())
-        else: # linux
-            return self.get_region_data_by_name(psutil.Process(self.get_pid()).name())[1]
-
-    def get_sai_exe_path(self):
-        proc = psutil.Process(self.get_pid())
-        if 'win' in sys.platform:
-            return proc.exe()
-        else: # linux
-            return self.get_region_data_by_name(proc.name())[0]
-
-    def get_sai_exe_hash(self):
-        exe = self.get_sai_exe_path()
-        if not exe:
-            return None
-        with open(exe, 'rb') as f:
-            return hashlib.file_digest(f, 'md5').hexdigest()
-
-    def is_sai_version_compatible(self, log=True):
-        sai_hash = self.get_sai_exe_hash()
-        compat = self.api.exe_hash == sai_hash
-        if log and not compat:
-            print('SAI version may not be compatible:')
-            print('  Compatible versions:')
-            for api in sorted(sai_api_lookup.values(), key=lambda x: x.__name__):
-                print('    Version:', api.version_name)
-                print('      Exe hash:  ', api.exe_hash)
-            print('  Found exe hash:', sai_hash)
-            print('Defaulted to version:', self.api.version_name)
-        return compat
 
     def get_canvas_list(self):
         return self.api.get_canvas_list()

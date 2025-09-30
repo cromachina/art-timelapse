@@ -2,6 +2,7 @@ import asyncio
 import logging
 from pathlib import Path
 import json
+import threading
 import traceback
 import time
 
@@ -171,7 +172,7 @@ class FilePickerEntry(EntryLabelRow):
             self.textvariable.set(filename)
 
 class ComboboxLabelRow(LabelRow):
-    def __init__(self, master, text, values=(), index_variable=None):
+    def __init__(self, master, text, values=None, index_variable=None):
         super().__init__(master, text)
         self.index_var = index_variable
         if self.index_var is None:
@@ -181,7 +182,8 @@ class ComboboxLabelRow(LabelRow):
         self.reentering = False
         self.combobox.bind('<<ComboboxSelected>>', self.on_selected)
         self.index_var.trace_add('write', self.var_trace)
-        self.set_values(values)
+        if values is not None:
+            self.set_values(values)
 
     def var_trace(self, *args):
         if self.reentering:
@@ -202,18 +204,15 @@ class ComboboxLabelRow(LabelRow):
     def get_index(self):
         return self.combobox.current()
 
-    def set_values(self, values, init=False):
-        value = self.combobox.get()
+    def set_values(self, values):
+        #value = self.combobox.get()
         self.combobox.config(values=values)
         try:
-            if init:
-                if isinstance(self.index_var, ttk.StringVar):
-                    self.combobox.current(values.index(self.index_var.get()))
-                else:
-                    self.combobox.current(self.index_var.get())
+            if isinstance(self.index_var, ttk.StringVar):
+                self.combobox.current(values.index(self.index_var.get()))
             else:
-                self.combobox.current(values.index(value))
-        except (ValueError, IndexError):
+                self.combobox.current(self.index_var.get())
+        except:
             if len(values) > 0:
                 self.combobox.current(0)
             else:
@@ -374,6 +373,8 @@ class App(asynctk.AsyncTk):
             'button_text': self.export_button_text_var,
         }
 
+        self.selected_tab_thread_safe = 0
+
         notebook = ttk.Notebook(self)
         notebook.pack(side=ttk.TOP, fill=ttk.X)
 
@@ -381,6 +382,9 @@ class App(asynctk.AsyncTk):
         make_frames_entry(sai_frame, self.frames_file_var)
         self.sai_version_status_var = ttk.StringVar()
         StatusLabelRow(sai_frame, 'SAI version detected:', textvariable=self.sai_version_status_var)
+        self.sai_version_override_var = self.settings.get_var('sai_version_override', 0)
+        self.sai_version_override_box = ComboboxLabelRow(sai_frame, 'SAI version override', index_variable=self.sai_version_override_var)
+        tooltip.ToolTip(self.sai_version_override_box, 'If the running SAI version cannot be detected, the selected override will be used.')
         self.sai_canvas_var = self.settings.get_var('sai_canvas', '')
         self.sai_canvas_box = ComboboxLabelRow(sai_frame, 'Canvas', index_variable=self.sai_canvas_var)
         tooltip.ToolTip(self.sai_canvas_box, 'Select which open SAI canvas to record from.')
@@ -426,7 +430,10 @@ class App(asynctk.AsyncTk):
 
         self.selected_tab_var = self.settings.get_var('selected_tab', 0)
         notebook.select(notebook.tabs()[self.selected_tab_var.get()])
-        notebook.bind('<<NotebookTabChanged>>', lambda _event: self.selected_tab_var.set(notebook.index(notebook.select())))
+        def on_notebook_tab_changed(*_args):
+            self.selected_tab_thread_safe = notebook.index(notebook.select())
+            self.selected_tab_var.set(self.selected_tab_thread_safe)
+        notebook.bind('<<NotebookTabChanged>>', on_notebook_tab_changed)
 
         status_area = StatusArea(self)
         logger = AsyncWidgetLogger(status_area)
@@ -448,52 +455,93 @@ class App(asynctk.AsyncTk):
         for api in sorted(sai.sai_api_lookup.values(), key=lambda x: x.version_name):
             logging.info(f'  {api.version_name}')
 
+        self.sai_proc = None
+        self.last_pid = None
+        self.current_pid = None
+        def on_override_changed(*_args):
+            self.clear_sai_proc()
+            self.set_sai_proc()
+        self.sai_version_override_var.trace_add('write', on_override_changed)
+        self.sai_version_override_box.set_values([api.version_name for api in sai.get_sai_api_list()])
         self.sai_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_sai))
         self.psd_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_psd))
         self.screen_click_button.set_callback(self.recording_wrapper(True, self.record_screen, grab=False))
         self.screen_grab_button.set_callback(self.recording_wrapper(True, self.record_screen, grab=True))
         self.export_config_frame.set_button_callback(self.recording_wrapper(False, self.export))
 
-        self.sai_proc = None
+        # PID scan is slow, so run it on another thread.
+        self.pid_scan_thread_running = True
+        self.pid_scan_task = asyncio.create_task(asyncio.to_thread(self.pid_scan_thread))
         self.background_task = asyncio.create_task(self.run_background_task())
         self.operation_task: asyncio.Task | None = None
 
     def cleanup(self):
         self.win_size_var.set((self.winfo_width(), self.winfo_height()))
         self.settings.save()
-        self.thread_running = False
+        self.pid_scan_thread_running = False
+        self.operation_thread_running = False
         for task in [self.background_task, self.operation_task]:
             if task is not None:
                 task.cancel()
+                try:
+                    ex = task.exception()
+                    logging.exception(ex)
+                except:
+                    pass
+
+    def clear_sai_proc(self):
+        if self.sai_proc is not None:
+            self.sai_proc.close()
+            self.sai_proc = None
+            self.last_pid = None
+
+    def refresh_sai_canvses(self):
+        canvases = [f'{canvas.get_name()} ({canvas.get_short_path()})' for canvas in self.sai_proc.get_canvas_list()]
+        self.sai_canvas_box.set_values(canvases)
+
+    def pid_scan_thread(self):
+        while self.pid_scan_thread_running:
+            if self.sai_proc is None and self.operation_task is None and self.selected_tab_thread_safe == 0:
+                self.current_pid = sai.find_running_sai_pid()
+            time.sleep(0.25)
+
+    def set_sai_proc(self):
+        if self.sai_proc is not None and self.sai_proc.is_running():
+            self.refresh_sai_canvses()
+        else:
+            self.clear_sai_proc()
+            sai_pid = self.current_pid
+            if sai_pid is None:
+                self.sai_version_status_var.set("SAI is not running")
+            elif sai_pid != self.last_pid:
+                self.last_pid = sai_pid
+                api = sai.get_sai_api_from_pid(sai_pid)
+                # Found version
+                if api is not None:
+                    self.sai_proc = sai.SAI()
+                    self.sai_version_status_var.set(self.sai_proc.api.version_name)
+                # Override version
+                else:
+                    version_index = self.sai_version_override_var.get()
+                    api = sai.get_sai_api_list()[version_index]
+                    self.sai_proc = sai.SAI(api)
+                    self.sai_version_status_var.set(f'{self.sai_proc.api.version_name} (Override)')
+                self.refresh_sai_canvses()
 
     async def run_background_task(self):
-        last_pid = None
         while True:
-            if self.sai_proc is not None and self.sai_proc.is_running():
-                canvases = [f'{canvas.get_name()} ({canvas.get_short_path()})' for canvas in self.sai_proc.get_canvas_list()]
-                self.sai_canvas_box.set_values(canvases, init=True)
-            else:
-                self.sai_proc = None
-                sai_pid = sai.find_running_sai_pid()
-                if sai_pid is None:
-                    self.sai_proc = None
-                    self.sai_version_status_var.set("SAI is not running")
-                elif sai_pid != last_pid:
-                    last_pid = sai_pid
-                    self.sai_proc = sai.SAI()
-                    if self.sai_proc.is_sai_version_compatible(log=False):
-                        self.sai_version_status_var.set(self.sai_proc.api.version_name)
-                        continue
-                    else:
-                        self.sai_proc = None
-                        self.sai_version_status_var.set("Unknown version")
-            await asyncio.sleep(0.5)
+            if self.operation_task is None and self.selected_tab_var.get() == 0:
+                try:
+                    self.set_sai_proc()
+                except:
+                    pass
+            await asyncio.sleep(0.25)
 
     def run_operation(self, recording_mode, task, *args, **kwargs):
         if self.operation_task is not None:
             self.operation_task.cancel()
             self.operation_task = None
-            self.thread_running = False
+            self.operation_thread_running = False
             return
         async def subtask():
             if recording_mode:
@@ -566,11 +614,12 @@ class App(asynctk.AsyncTk):
         def progress_kill_check(iterable, unit):
             for it in self.export_progress.iterate(iterable, unit):
                 yield it
-                if not self.thread_running:
+                if not self.operation_thread_running:
                     logging.info('Export cancelled')
                     return
-            self.thread_running = False
-        self.thread_running = True
+            self.operation_thread_running = False
+        self.operation_thread_running = True
+        # Export can have long CPU-bound sections, so run it on another thread.
         await asyncio.to_thread(timelapse.export, progress_kill_check, export_time_limit, export_fps, frames_path, container, codec, output_path)
 
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
