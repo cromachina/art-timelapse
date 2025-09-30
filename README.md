@@ -122,6 +122,7 @@ environment.systemPackages = with pkgs; [
 ```
 
 ### Todo
-- Maybe make a simple GUI.
+- Linux AppImage
+- Faster starting prebuilt executable (somehow)
 
 https://github.com/cromachina/art-timelapse/assets/82557197/3e10a9d4-d855-4e91-8070-8f21aa9c350c
