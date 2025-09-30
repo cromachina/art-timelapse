@@ -418,7 +418,7 @@ class App(asynctk.AsyncTk):
         tooltip.ToolTip(export_file_entry, 'Path to the video file to export to. Extension is determined by video type. Leave blank to automatically use the frames path.')
         self.export_time_limit_var = self.settings.get_var('export_time_limit', 60)
         export_time_limit_entry = EntryLabelRow(export_frame, 'Export time limit', numbers=True, textvariable=self.export_time_limit_var)
-        tooltip.ToolTip(export_time_limit_entry, 'Maximum time the exported video should be (based on 30 FPS). Enter 0 or leave blank for no time limit.')
+        tooltip.ToolTip(export_time_limit_entry, 'Maximum time the exported video should be. Enter 0 or leave blank for no time limit.')
         self.export_fps_var = self.settings.get_var('export_fps', 30)
         export_fps_entry = EntryLabelRow(export_frame, 'Export FPS', numbers=True, textvariable=self.export_fps_var)
         tooltip.ToolTip(export_fps_entry, 'Set the FPS of the exported video. 30 is a common default. Lower FPS is better for PSD recording exports (like 5 FPS).')
