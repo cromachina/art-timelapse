@@ -352,14 +352,12 @@ class App(asynctk.AsyncTk):
         self.title('art-timelapse')
         self.settings = Settings('.art-timelapse')
 
+        #########################################################
+        # Tk variables
         self.win_size_var = self.settings.get_var('win_size', (600, 600))
-        self.geometry('{}x{}'.format(*self.win_size_var.get()))
-
         self.frames_file_var = self.settings.get_var('frames_file', '')
-
         self.recording_button_text_var = StackStringVar(value='Start Recording')
         self.export_button_text_var = StackStringVar(value='Export')
-
         recording_vars = {
             'video_type_var': self.settings.get_var('recording_type', 0),
             'custom_container_var': self.settings.get_var('recording_custom_container', ''),
@@ -372,31 +370,37 @@ class App(asynctk.AsyncTk):
             'custom_codec_var': self.settings.get_var('export_custom_codec', ''),
             'button_text': self.export_button_text_var,
         }
-
+        self.sai_version_status_var = ttk.StringVar()
+        self.sai_version_override_var = self.settings.get_var('sai_version_override', 0)
+        self.sai_canvas_var = self.settings.get_var('sai_canvas', '')
+        self.image_size_limit_var = self.settings.get_var('image_size_limit', 1000)
+        self.psd_file_var = self.settings.get_var('psd_file_var', '')
+        self.screen_click_button_var = StackStringVar(value='Click window grab and start recording')
+        self.screen_grab_button_var = StackStringVar(value='Drag area grab and start recording')
+        self.export_file_var = self.settings.get_var('export_file_var', '')
+        self.export_time_limit_var = self.settings.get_var('export_time_limit', 60)
+        self.export_fps_var = self.settings.get_var('export_fps', 30)
+        self.export_use_recording_var = self.settings.get_var('export_user_recording', True)
+        self.selected_tab_var = self.settings.get_var('selected_tab', 0)
         self.selected_tab_thread_safe = 0
+        meta_config_theme_var = self.settings.get_var('theme', 'darkly')
 
+        #########################################################
+        # GUI widgets and layout
         notebook = ttk.Notebook(self)
         notebook.pack(side=ttk.TOP, fill=ttk.X)
 
         sai_frame = make_notebook_frame(notebook, 'SAI Recording')
         make_frames_entry(sai_frame, self.frames_file_var)
-        self.sai_version_status_var = ttk.StringVar()
         StatusLabelRow(sai_frame, 'SAI version detected:', textvariable=self.sai_version_status_var)
-        self.sai_version_override_var = self.settings.get_var('sai_version_override', 0)
-        self.sai_version_override_box = ComboboxLabelRow(sai_frame, 'SAI version override', index_variable=self.sai_version_override_var)
-        tooltip.ToolTip(self.sai_version_override_box, 'If the running SAI version cannot be detected, the selected override will be used.')
-        self.sai_canvas_var = self.settings.get_var('sai_canvas', '')
+        self.sai_version_override_box = ComboboxLabelRow(sai_frame, 'SAI version override', values=[api.version_name for api in sai.get_sai_api_list()], index_variable=self.sai_version_override_var)
         self.sai_canvas_box = ComboboxLabelRow(sai_frame, 'Canvas', index_variable=self.sai_canvas_var)
-        tooltip.ToolTip(self.sai_canvas_box, 'Select which open SAI canvas to record from.')
-        self.image_size_limit_var = self.settings.get_var('image_size_limit', 1000)
         make_image_size_limit_box(sai_frame, textvariable=self.image_size_limit_var)
         self.sai_recording_frame = VideoConfigFrame(sai_frame, recording_vars)
 
         psd_frame = make_notebook_frame(notebook, 'PSD Recording')
         make_frames_entry(psd_frame, self.frames_file_var)
-        self.psd_file_var = self.settings.get_var('psd_file_var', '')
         psd_file_entry = FilePickerEntry(psd_frame, 'PSD file', mode='open', filetypes=[('PSD', '.psd .psb'), ('Any', '*.*')], textvariable=self.psd_file_var)
-        tooltip.ToolTip(psd_file_entry, 'PSD/PSB file to record from as it is saved to disk.')
         make_image_size_limit_box(psd_frame, textvariable=self.image_size_limit_var)
         self.psd_recording_frame = VideoConfigFrame(psd_frame, recording_vars)
 
@@ -404,36 +408,17 @@ class App(asynctk.AsyncTk):
         make_frames_entry(screen_frame, self.frames_file_var)
         self.screen_recording_frame = VideoConfigFrame(screen_frame, recording_vars)
         self.screen_recording_frame.button.forget()
-        self.screen_click_button_var = StackStringVar(value='Click window grab and start recording')
         self.screen_click_button = ButtonRow(screen_frame, textvariable=self.screen_click_button_var)
-        tooltip.ToolTip(self.screen_click_button, 'Captures the subwindow that was clicked on. Automatically adjusts capture size to the subwindow.')
-        self.screen_grab_button_var = StackStringVar(value='Drag area grab and start recording')
         self.screen_grab_button = ButtonRow(screen_frame, textvariable=self.screen_grab_button_var)
-        tooltip.ToolTip(self.screen_grab_button, 'Captures a fixed area of the subwindow. Drag a rectangle like a screenshot tool.')
 
         export_frame = make_notebook_frame(notebook, 'Export Video')
         make_frames_entry(export_frame, self.frames_file_var)
-        self.export_file_var = self.settings.get_var('export_file_var', '')
         export_file_entry = FilePickerEntry(export_frame, 'Export file', mode='save', textvariable=self.export_file_var)
-        tooltip.ToolTip(export_file_entry, 'Path to the video file to export to. Extension is determined by video type. Leave blank to automatically use the frames path.')
-        self.export_time_limit_var = self.settings.get_var('export_time_limit', 60)
         export_time_limit_entry = EntryLabelRow(export_frame, 'Export time limit', numbers=True, textvariable=self.export_time_limit_var)
-        tooltip.ToolTip(export_time_limit_entry, 'Maximum time the exported video should be. Enter 0 or leave blank for no time limit.')
-        self.export_fps_var = self.settings.get_var('export_fps', 30)
         export_fps_entry = EntryLabelRow(export_frame, 'Export FPS', numbers=True, textvariable=self.export_fps_var)
-        tooltip.ToolTip(export_fps_entry, 'Set the FPS of the exported video. 30 is a common default. Lower FPS is better for PSD recording exports (like 5 FPS).')
-        self.export_use_recording_var = self.settings.get_var('export_user_recording', True)
         export_user_reocrding = CheckbuttonLabelRow(export_frame, 'Use recording video type', variable=self.export_use_recording_var)
-        tooltip.ToolTip(export_user_reocrding, 'Use the same video options as the recording tabs and ignore the below settings.')
         self.export_config_frame = VideoConfigFrame(export_frame, export_vars)
         self.export_progress = ProgressRow(export_frame)
-
-        self.selected_tab_var = self.settings.get_var('selected_tab', 0)
-        notebook.select(notebook.tabs()[self.selected_tab_var.get()])
-        def on_notebook_tab_changed(*_args):
-            self.selected_tab_thread_safe = notebook.index(notebook.select())
-            self.selected_tab_var.set(self.selected_tab_thread_safe)
-        notebook.bind('<<NotebookTabChanged>>', on_notebook_tab_changed)
 
         status_area = StatusArea(self)
         logger = AsyncWidgetLogger(status_area)
@@ -442,12 +427,32 @@ class App(asynctk.AsyncTk):
         meta_config = ttk.Frame(self)
         meta_config.pack(fill=ttk.X)
         ttk.Label(meta_config, text='Theme:').pack(side=ttk.LEFT)
-        theme_box = ttk.Combobox(meta_config, state=ttk.READONLY)
-        theme_var = self.settings.get_var('theme', 'darkly')
-        theme_box.pack(side=ttk.LEFT)
-        theme_box.config(values=ttk.Style().theme_names(), textvariable=theme_var)
-        theme_box.bind('<<ComboboxSelected>>', lambda _: ttk.Style(theme_box.get()))
-        theme_box.set(ttk.Style(theme_var.get()).theme_use())
+        meta_config_theme_box = ttk.Combobox(meta_config, state=ttk.READONLY)
+        meta_config_theme_box.pack(side=ttk.LEFT)
+        meta_config_theme_box.config(values=ttk.Style().theme_names(), textvariable=meta_config_theme_var)
+
+        tooltip.ToolTip(self.sai_version_override_box, 'If the running SAI version cannot be detected, the selected override will be used.')
+        tooltip.ToolTip(self.sai_canvas_box, 'Select which open SAI canvas to record from.')
+        tooltip.ToolTip(psd_file_entry, 'PSD/PSB file to record from as it is saved to disk.')
+        tooltip.ToolTip(self.screen_click_button, 'Captures the subwindow that was clicked on. Automatically adjusts capture size to the subwindow.')
+        tooltip.ToolTip(self.screen_grab_button, 'Captures a fixed area of the subwindow. Drag a rectangle like a screenshot tool.')
+        tooltip.ToolTip(export_file_entry, 'Path to the video file to export to. Extension is determined by video type. Leave blank to automatically use the frames path.')
+        tooltip.ToolTip(export_time_limit_entry, 'Maximum time the exported video should be. Enter 0 or leave blank for no time limit.')
+        tooltip.ToolTip(export_fps_entry, 'Set the FPS of the exported video. 30 is a common default. Lower FPS is better for PSD recording exports (like 5 FPS).')
+        tooltip.ToolTip(export_user_reocrding, 'Use the same video options as the recording tabs and ignore the below settings.')
+
+        #########################################################
+        # Init and callbacks
+        self.geometry('{}x{}'.format(*self.win_size_var.get()))
+
+        notebook.select(notebook.tabs()[self.selected_tab_var.get()])
+        def on_notebook_tab_changed(*_args):
+            self.selected_tab_thread_safe = notebook.index(notebook.select())
+            self.selected_tab_var.set(self.selected_tab_thread_safe)
+        notebook.bind('<<NotebookTabChanged>>', on_notebook_tab_changed)
+
+        meta_config_theme_var.trace_add('write', lambda *_: ttk.Style(meta_config_theme_var.get()))
+        meta_config_theme_var.set(meta_config_theme_var.get())
 
         auto_size_label_rows(self)
 
@@ -462,17 +467,19 @@ class App(asynctk.AsyncTk):
             self.clear_sai_proc()
             self.set_sai_proc()
         self.sai_version_override_var.trace_add('write', on_override_changed)
-        self.sai_version_override_box.set_values([api.version_name for api in sai.get_sai_api_list()])
         self.sai_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_sai))
         self.psd_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_psd))
         self.screen_click_button.set_callback(self.recording_wrapper(True, self.record_screen, grab=False))
         self.screen_grab_button.set_callback(self.recording_wrapper(True, self.record_screen, grab=True))
         self.export_config_frame.set_button_callback(self.recording_wrapper(False, self.export))
 
-        # PID scan is slow, so run it on another thread.
+        #########################################################
+        # Background tasks
         self.pid_scan_thread_running = True
+        # PID scan is slow, so run it on another thread.
         self.pid_scan_task = asyncio.create_task(asyncio.to_thread(self.pid_scan_thread))
         self.background_task = asyncio.create_task(self.run_background_task())
+        self.operation_thread_running = False
         self.operation_task: asyncio.Task | None = None
 
     def cleanup(self):
