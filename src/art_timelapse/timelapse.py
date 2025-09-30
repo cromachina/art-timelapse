@@ -64,8 +64,15 @@ def get_spanned_rect(pos1, pos2):
     p2x, p2y = pos2
     return min(p1x, p2x), min(p1y, p2y), max(p1x, p2x), max(p1y, p2y)
 
-class WindowGrabber(asynctk.AsyncTk):
+class WindowGrabber(tk.Toplevel):
     def __init__(self, drag_area, *args, **kwargs):
+        if tk._default_root is None:
+            self.root = asynctk.AsyncTk()
+            self.root.withdraw()
+            self.root_task = asyncio.create_task(self.root.async_main_loop())
+        else:
+            self.root = None
+        self.event = asyncio.Event()
         super().__init__(*args, **kwargs)
         self.drag_area = drag_area
         self.overrideredirect(True)
@@ -76,7 +83,7 @@ class WindowGrabber(asynctk.AsyncTk):
         self.geometry(f'{self.sw}x{self.sh}+0+0')
         self.attributes('-topmost', True)
         self.screen = ImageTk.PhotoImage(self.screen, master=self)
-        self.canvas = tk.Canvas(self, width=self.sw, height=self.sh)
+        self.canvas = tk.Canvas(self, width=self.sw, height=self.sh, highlightthickness=0)
         self.canvas.place(x=0, y=0)
         self.canvas.create_image((0, 0), anchor=tk.NW, image=self.screen)
         self.overlay = self.make_rect(self.sw, self.sh, 'gray12')
@@ -133,12 +140,15 @@ class WindowGrabber(asynctk.AsyncTk):
 
     def released(self, _event):
         self.destroy()
-        self.stop()
+        if self.root is not None:
+            self.root.stop()
+            self.root.destroy()
+        self.event.set()
 
     def set_cancelled(self, event):
         logging.info("Window grab cancelled")
-        self.released(event)
         self.cancelled = True
+        self.released(event)
 
     def scan_motion(self, event):
         window = pywinctl.getTopWindowAt(event.x, event.y)
@@ -158,7 +168,8 @@ class WindowGrabber(asynctk.AsyncTk):
         self.pos1 = event.x, event.y
         self.released(event)
 
-    def get_window_and_bbox(self):
+    async def get_window_and_bbox(self):
+        await self.event.wait()
         if self.cancelled:
             return None, None
         window = pywinctl.getTopWindowAt(*self.pos1)
@@ -166,9 +177,7 @@ class WindowGrabber(asynctk.AsyncTk):
         return window, bbox
 
 async def get_window_and_bbox(drag_grab):
-    grabber = WindowGrabber(drag_grab)
-    await grabber.async_main_loop()
-    return grabber.get_window_and_bbox()
+    return await WindowGrabber(drag_grab).get_window_and_bbox()
 
 def get_root_window(window):
     pid = window.getPID()
@@ -530,7 +539,7 @@ async def screen_capture(window, bbox, frames, container, codec, **_):
 
 # Capture a window's rectangular subregion or subwindow.
 async def cli_screen_capture(config):
-    window, bbox = await get_window_and_bbox(config)
+    window, bbox = await get_window_and_bbox(config.drag_grab)
     if window is None:
         return
     await screen_capture(window, bbox, **vars(config))
