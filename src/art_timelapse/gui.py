@@ -584,15 +584,16 @@ class App(asynctk.AsyncTk):
         if self.sai_proc is None:
             logging.info("No valid SAI process found")
             return
-        frames_path = self.frames_file_var.get()
-        container, codec = self.sai_recording_frame.get_format()
-        image_size_limit = self.image_size_limit_var.get()
-        canvases = self.sai_proc.get_canvas_list()
-        if len(canvases) == 0:
-            logging.info("There are no canvases open")
-            return
-        canvas = canvases[self.sai_canvas_box.get_index()]
-        await timelapse.sai_capture(self.sai_proc, canvas, image_size_limit, frames_path, container, codec)
+        with sai.SAI(type(self.sai_proc.api)) as sai_proc:
+            frames_path = self.frames_file_var.get()
+            container, codec = self.sai_recording_frame.get_format()
+            image_size_limit = self.image_size_limit_var.get()
+            canvases = sai_proc.get_canvas_list()
+            if len(canvases) == 0:
+                logging.info("There are no canvases open")
+                return
+            canvas = canvases[self.sai_canvas_box.get_index()]
+            await timelapse.sai_capture(sai_proc, canvas, image_size_limit, frames_path, container, codec)
 
     async def record_psd(self):
         frames_path = self.frames_file_var.get()
