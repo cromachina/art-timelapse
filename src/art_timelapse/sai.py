@@ -121,7 +121,7 @@ def offset_fields(fields):
         current_offset += ctypes.sizeof(type)
     return result
 
-class SAI_API_Base():
+class SAI_API_Base:
     def __init__(self, proc, base_address):
         self.proc = proc
         self.base_address = base_address
@@ -303,16 +303,15 @@ def get_exe_hash(proc:OpenProcess) -> str | None:
         return hashlib.file_digest(f, 'md5').hexdigest()
 
 # Used by GUI
-def get_sai_api_from_pid(pid, query_override=False):
+def get_sai_api_from_pid(pid:int, query_override=False) -> SAI_API_Base | None:
     with OpenProcess(pid=pid) as proc:
         return get_sai_api_from_proc(proc, query_override)
 
 # Used by CLI
-def get_sai_api_from_proc(proc:OpenProcess, query_override=True):
+def get_sai_api_from_proc(proc:OpenProcess, query_override=True) -> SAI_API_Base | None:
     exe_hash = get_exe_hash(proc)
     found_api = get_sai_api(exe_hash)
-    compat = found_api is not None
-    if query_override and not compat:
+    if query_override and found_api is None:
         while True:
             logging.info('SAI version may not be compatible:')
             logging.info('  Compatible versions:')
@@ -382,8 +381,7 @@ class SAI:
 
 def test():
     with SAI() as sai:
-        print('SAI compatible:', sai.is_sai_version_compatible())
-        canvas = sai.get_canvas_list()[-1]
+        canvas = sai.get_canvas_list()[0]
         print('Canvas name:', canvas.get_name())
         img = sai.get_canvas_image(canvas)
         import cv2

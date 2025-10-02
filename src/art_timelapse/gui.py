@@ -2,7 +2,6 @@ import asyncio
 import logging
 from pathlib import Path
 import json
-import threading
 import traceback
 import time
 
@@ -149,26 +148,27 @@ class FilePickerEntry(EntryLabelRow):
 
     def pick_file(self, *_args):
         initdir = get_nearest_dir(self.textvariable.get())
-        if self.mode == 'open':
-            filename = filedialog.askopenfilename(
-                title=self.title,
-                initialdir=initdir,
-                filetypes=self.filetypes,
-            )
-        elif self.mode == 'save':
-            filename = filedialog.asksaveasfilename(
-                title=self.title,
-                initialdir=initdir,
-                filetypes=self.filetypes,
-            )
-        elif self.mode == 'dir':
-            filename = filedialog.askdirectory(
-                title='Pick frames directory',
-                initialdir=initdir,
-            )
-        else:
-            return
-        if filename:
+        match self.mode:
+            case 'open':
+                filename = filedialog.askopenfilename(
+                    title=self.title,
+                    initialdir=initdir,
+                    filetypes=self.filetypes,
+                )
+            case 'save':
+                filename = filedialog.asksaveasfilename(
+                    title=self.title,
+                    initialdir=initdir,
+                    filetypes=self.filetypes,
+                )
+            case 'dir':
+                filename = filedialog.askdirectory(
+                    title=self.title,
+                    initialdir=initdir,
+                )
+            case _:
+                return
+        if filename is not None:
             self.textvariable.set(filename)
 
 class ComboboxLabelRow(LabelRow):
@@ -185,7 +185,7 @@ class ComboboxLabelRow(LabelRow):
         if values is not None:
             self.set_values(values)
 
-    def var_trace(self, *args):
+    def var_trace(self, *_args):
         if self.reentering:
             return
         if isinstance(self.index_var, ttk.StringVar):
@@ -624,8 +624,7 @@ class App(asynctk.AsyncTk):
                 yield it
                 if not self.operation_thread_running:
                     logging.info('Export cancelled')
-                    return
-            self.operation_thread_running = False
+                    break
         self.operation_thread_running = True
         # Export can have long CPU-bound sections, so run it on another thread.
         await asyncio.to_thread(timelapse.export, progress_kill_check, export_time_limit, export_fps, frames_path, container, codec, output_path)
