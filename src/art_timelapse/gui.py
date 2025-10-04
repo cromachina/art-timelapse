@@ -2,6 +2,7 @@ import asyncio
 import logging
 from pathlib import Path
 import json
+from collections import deque
 import traceback
 import time
 
@@ -10,6 +11,35 @@ from ttkbootstrap import tooltip
 from tkinter import filedialog
 
 from . import asynctk, timelapse, sai
+
+def get_fixed_font(font_name='Consolas', font_size=10):
+    if font_name in ttk.font.families():
+        font = (font_name, font_size)
+    else:
+        if font_name not in ttk.font.names():
+            font_name = 'TkFixedFont'
+        font = ttk.font.nametofont(font_name)
+        font.config(size=font_size)
+    return font
+
+class RollingAverage:
+    def __init__(self, n=20):
+        self.n = n
+        self.total = 0
+        self.values = deque()
+
+    def put(self, value):
+        self.total += value
+        self.values.append(value)
+        if len(self.values) > self.n:
+            self.total -= self.values.popleft()
+
+    def get(self):
+        return self.total / len(self.values)
+
+    def next(self, value):
+        self.put(value)
+        return self.get()
 
 class DefaultIntVar(ttk.IntVar):
     def __init__(self, *args, **kwargs):
@@ -48,10 +78,10 @@ class ButtonRow(ttk.Frame):
         self.button.config(command=callback)
 
 class ProgressRow(ttk.Frame):
-    def __init__(self, master):
+    def __init__(self, master, font=None):
         super().__init__(master)
         self.pack(fill=ttk.X)
-        self.label = ttk.Label(self)
+        self.label = ttk.Label(self, font=font)
         self.label.pack()
         self.progressbar = ttk.Progressbar(self)
         self.progressbar.pack(fill=ttk.X, expand=True)
@@ -59,6 +89,8 @@ class ProgressRow(ttk.Frame):
 
     def iterate(self, iterable, unit='it'):
         self.last_update = float('-inf')
+        self.avg_ips = RollingAverage()
+        self.avg_eta_sec = RollingAverage()
         total = len(iterable)
         i = 0
         start_time = time.monotonic()
@@ -82,9 +114,9 @@ class ProgressRow(ttk.Frame):
             elapsed_seconds = int(elapsed_time % 60)
             eta_total = delta * (total - i)
             eta_minutes = int(eta_total // 60)
-            eta_seconds = int(eta_total % 60)
-            ips = 1 / delta
-            self.label.config(text=f'{i}/{total} [{elapsed_minutes:02}:{elapsed_seconds:02}<{eta_minutes:02}:{eta_seconds:02}, {ips:.2f}{unit}/s]')
+            eta_seconds = int(self.avg_eta_sec.next(eta_total % 60))
+            ips = self.avg_ips.next(1 / delta)
+            self.label.config(text=f'{i}/{total} [{elapsed_minutes:02}:{elapsed_seconds:02}<{eta_minutes:02}:{eta_seconds:02}, {ips:6.2f}{unit}/s]')
         self.progressbar.config(value=value)
 
 class LabelRow(ttk.Frame):
@@ -249,15 +281,9 @@ class VideoConfigFrame(ttk.Frame):
         self.button.set_callback(callback)
 
 class StatusArea(ttk.LabelFrame):
-    def __init__(self, master):
+    def __init__(self, master, font=None):
         super().__init__(master, text='Status')
         self.pack(fill=ttk.BOTH, expand=True)
-        font_size = 10
-        if 'Consolas' in ttk.font.families():
-            font = ('Consolas', font_size)
-        else:
-            font = ttk.font.nametofont('TkFixedFont')
-            font.config(size=font_size)
         self.text = ttk.Text(self, state=ttk.DISABLED, font=font, width=1, height=1)
         self.text.pack(fill=ttk.BOTH, expand=True)
 
@@ -351,6 +377,7 @@ class App(asynctk.AsyncTk):
         super().__init__(*args, **kwargs)
         self.title('art-timelapse')
         self.settings = Settings('.art-timelapse')
+        fixed_font = get_fixed_font()
 
         #########################################################
         # Tk variables
@@ -418,9 +445,9 @@ class App(asynctk.AsyncTk):
         export_fps_entry = EntryLabelRow(export_frame, 'Export FPS', numbers=True, textvariable=self.export_fps_var)
         export_user_reocrding = CheckbuttonLabelRow(export_frame, 'Use recording video type', variable=self.export_use_recording_var)
         self.export_config_frame = VideoConfigFrame(export_frame, export_vars)
-        self.export_progress = ProgressRow(export_frame)
+        self.export_progress = ProgressRow(export_frame, font=fixed_font)
 
-        status_area = StatusArea(self)
+        status_area = StatusArea(self, font=fixed_font)
         logger = AsyncWidgetLogger(status_area)
         logging.getLogger().addHandler(logger)
 
