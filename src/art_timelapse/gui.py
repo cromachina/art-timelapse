@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 import json
 from collections import deque
+import threading
 import traceback
 import time
 
@@ -502,7 +503,7 @@ class App(asynctk.AsyncTk):
 
         #########################################################
         # Background tasks
-        self.pid_scan_thread_running = True
+        self.pid_scan_event = threading.Event()
         # PID scan is slow, so run it on another thread.
         self.pid_scan_task = asyncio.create_task(asyncio.to_thread(self.pid_scan_thread))
         self.background_task = asyncio.create_task(self.run_background_task())
@@ -512,7 +513,7 @@ class App(asynctk.AsyncTk):
     def cleanup(self):
         self.win_size_var.set((self.winfo_width(), self.winfo_height()))
         self.settings.save()
-        self.pid_scan_thread_running = False
+        self.pid_scan_event.set()
         self.operation_thread_running = False
         for task in [self.background_task, self.operation_task]:
             if task is not None:
@@ -534,10 +535,9 @@ class App(asynctk.AsyncTk):
         self.sai_canvas_box.set_values(canvases)
 
     def pid_scan_thread(self):
-        while self.pid_scan_thread_running:
+        while not self.pid_scan_event.wait(0.25):
             if self.sai_proc is None and self.operation_task is None and self.selected_tab_thread_safe == 0:
                 self.current_pid = sai.find_running_sai_pid()
-            time.sleep(0.25)
 
     def set_sai_proc(self):
         if self.sai_proc is not None and self.sai_proc.is_running():
