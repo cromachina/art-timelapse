@@ -546,7 +546,7 @@ class App(asynctk.AsyncTk):
             self.clear_sai_proc()
             sai_pid = self.current_pid
             if sai_pid is None:
-                self.sai_version_status_var.set("SAI is not running")
+                self.sai_version_status_var.set('SAI is not running')
             elif sai_pid != self.last_pid:
                 self.last_pid = sai_pid
                 api = sai.get_sai_api_from_pid(sai_pid)
@@ -609,7 +609,7 @@ class App(asynctk.AsyncTk):
 
     async def record_sai(self):
         if self.sai_proc is None:
-            logging.info("No valid SAI process found")
+            logging.info('No valid SAI process found')
             return
         with sai.SAI(type(self.sai_proc.api)) as sai_proc:
             frames_path = self.frames_file_var.get()
@@ -617,7 +617,7 @@ class App(asynctk.AsyncTk):
             image_size_limit = self.image_size_limit_var.get()
             canvases = sai_proc.get_canvas_list()
             if len(canvases) == 0:
-                logging.info("There are no canvases open")
+                logging.info('There are no canvases open')
                 return
             canvas = canvases[self.sai_canvas_box.get_index()]
             await timelapse.sai_capture(sai_proc, canvas, image_size_limit, frames_path, container, codec)
@@ -657,7 +657,7 @@ class App(asynctk.AsyncTk):
         await asyncio.to_thread(timelapse.export, progress_kill_check, export_time_limit, export_fps, frames_path, container, codec, output_path)
 
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
-        logging.exception("".join(traceback.format_exception(exc_type, exc_value, exc_tb)))
+        logging.exception(''.join(traceback.format_exception(exc_type, exc_value, exc_tb)))
 
 async def main():
     await App().async_main_loop()

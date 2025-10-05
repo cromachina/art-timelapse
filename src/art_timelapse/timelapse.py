@@ -27,7 +27,7 @@ sct = mss()
 
 def grab(sct, bbox):
     img = sct.grab(bbox)
-    return Image.frombytes("RGB", img.size, img.bgra, "raw", "BGRX")
+    return Image.frombytes('RGB', img.size, img.bgra, 'raw', 'BGRX')
 
 def expand_path(path):
     path = Path(path)
@@ -99,7 +99,7 @@ class WindowGrabber(tk.Toplevel):
         self.lift()
 
         if drag_area:
-            logging.info('Click on a subwindow to start tracking. Right click to cancel.')
+            logging.info('Click and drag on a subwindow to start tracking an area. Right click to cancel.')
             self.bind('<Motion>', self.drag_motion)
             self.bind('<ButtonPress-1>', self.drag_clicked)
             self.bind('<ButtonRelease-1>', self.released)
@@ -146,7 +146,7 @@ class WindowGrabber(tk.Toplevel):
         self.event.set()
 
     def set_cancelled(self, event):
-        logging.info("Window grab cancelled")
+        logging.info('Window grab cancelled')
         self.cancelled = True
         self.released(event)
 
