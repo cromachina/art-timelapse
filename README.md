@@ -121,8 +121,28 @@ environment.systemPackages = with pkgs; [
 ];
 ```
 
+### Running in Wayland
+The dependency `mss` (used for taking screenshots for both the window grabber and screen recording) does not currently work with Wayland compositors.
+One way to get around this is to use Xwayland to run a lightweight X11 window manager, like i3, and then run both SAI and art-timelapse inside of that.
+
+This is an example script that will start i3 in an Xwayland window with i3, and then start SAI (configured with Bottles) and art-timelapse.
+This script depends on: `xwayland-run`, `i3`, and `bottles`.
+Change the `SAI_BOTTLE` and `SAI_PROGRAM` names according to your own Bottles config.
+```sh
+#!/usr/bin/env sh
+SAI_BOTTLE=SAIv2
+SAI_PROGRAM=sai2
+export XDG_SESSION_TYPE=x11
+export I3SOCK=~/.i3/i3-ipc.sock
+cd ~
+xwayland-run -decorate -- i3 &
+until [ -e $I3SOCK ]; do sleep 1; done
+i3-msg exec "workspace 1; exec bottles-cli run -b $SAI_BOTTLE -p $SAI_PROGRAM; exec art-timelapse"
+```
+
+Clipboard will also probably not work between the host and Xwayland windows. I don't know of a workaround for this.
+
 ### Todo
 - Linux AppImage
-- Faster starting prebuilt executable (somehow)
 
 https://github.com/cromachina/art-timelapse/assets/82557197/3e10a9d4-d855-4e91-8070-8f21aa9c350c
