@@ -125,7 +125,7 @@ environment.systemPackages = with pkgs; [
 The dependency `mss` (used for taking screenshots for both the window grabber and screen recording) does not currently work with Wayland compositors.
 One way to get around this is to use Xwayland to run a lightweight X11 window manager, like i3, and then run both SAI and art-timelapse inside of that.
 
-This is an example script that will start i3 in an Xwayland window with i3, and then start SAI (configured with Bottles) and art-timelapse.
+This is an example script that will start i3 in an Xwayland window, and then start SAI (configured with Bottles) and art-timelapse.
 This script depends on: `xwayland-run`, `i3`, and `bottles`.
 Change the `SAI_BOTTLE` and `SAI_PROGRAM` names according to your own Bottles config.
 ```sh
