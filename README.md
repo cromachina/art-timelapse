@@ -122,7 +122,7 @@ environment.systemPackages = with pkgs; [
 ```
 
 ### Running in Wayland
-The dependency `mss` (used for taking screenshots for both the window grabber and screen recording) does not currently work with Wayland compositors.
+The dependencies `mss` (used for taking screenshots for both the window grabber and screen recording) and `pywinctl` (used by the window grabber and input tracker to identify the target window) do not currently work with Wayland compositors.
 One way to get around this is to use Xwayland to run a lightweight X11 window manager, like i3, and then run both SAI and art-timelapse inside of that.
 
 This is an example script that will start i3 in an Xwayland window, and then start SAI (configured with Bottles) and art-timelapse.

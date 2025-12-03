@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 import json
 from collections import deque
+import os
 import threading
 import traceback
 import time
@@ -238,7 +239,6 @@ class ComboboxLabelRow(LabelRow):
         return self.combobox.current()
 
     def set_values(self, values):
-        #value = self.combobox.get()
         self.combobox.config(values=values)
         try:
             if isinstance(self.index_var, ttk.StringVar):
@@ -483,6 +483,14 @@ class App(asynctk.AsyncTk):
         meta_config_theme_var.set(meta_config_theme_var.get())
 
         auto_size_label_rows(self)
+
+        session_type_key = 'XDG_SESSION_TYPE'
+        session_type = os.environ.get(session_type_key)
+        if session_type.lower() == 'wayland':
+            logging.warning(f'Possible Wayland session is running because the following environment variable was set:')
+            logging.warning(f'  {session_type_key}={session_type}')
+            logging.warning(f'Wayland sessions are currently not supported by dependencies mss and pywinctl.')
+            logging.warning(f'To work around this, you can run this tool and your desired art program inside of Xwayland, see README.md.')
 
         logging.info('Supported SAI versions:')
         for api in sorted(sai.sai_api_lookup.values(), key=lambda x: x.version_name):
