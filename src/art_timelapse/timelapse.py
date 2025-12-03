@@ -152,7 +152,8 @@ class WindowGrabber(tk.Toplevel):
 
     def scan_motion(self, event):
         window = pywinctl.getTopWindowAt(event.x, event.y)
-        self.set_rect(*window.rect)
+        if window is not None:
+            self.set_rect(*window.rect)
 
     def scan_motion_win(self, event):
         window = pywinctl.getActiveWindow()
@@ -386,6 +387,8 @@ class InputTracker(EventTrackerBase):
     def on_click_callback(self, x, y, _button, is_pressed):
         if is_pressed:
             window = pywinctl.getTopWindowAt(x, y)
+            if window is None:
+                return
             self.click_started_in_window = window.getHandle() == self.target_window.getHandle()
             if self.click_started_in_window:
                 bbox = window.rect if self.bbox is None else self.bbox
