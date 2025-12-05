@@ -485,7 +485,7 @@ class App(asynctk.AsyncTk):
         auto_size_label_rows(self)
 
         session_type_key = 'XDG_SESSION_TYPE'
-        session_type = os.environ.get(session_type_key)
+        session_type = os.environ.get(session_type_key, '')
         if session_type.lower() == 'wayland':
             logging.warning(f'Possible Wayland session is running because the following environment variable was set:')
             logging.warning(f'  {session_type_key}={session_type}')
