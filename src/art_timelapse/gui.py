@@ -8,19 +8,21 @@ import threading
 import traceback
 import time
 
+import tkinter as tk
 import ttkbootstrap as ttk
-from ttkbootstrap import tooltip
+import ttkbootstrap.constants as ttkc
+from ttkbootstrap.widgets import tooltip
 from tkinter import filedialog
 
 from . import asynctk, timelapse, sai
 
 def get_fixed_font(font_name='Consolas', font_size=10):
-    if font_name in ttk.font.families():
+    if font_name in tk.font.families():
         font = (font_name, font_size)
     else:
         if font_name not in ttk.font.names():
             font_name = 'TkFixedFont'
-        font = ttk.font.nametofont(font_name)
+        font = tk.font.nametofont(font_name)
         font.config(size=font_size)
     return font
 
@@ -69,9 +71,9 @@ class StackStringVar(ttk.StringVar):
 class ButtonRow(ttk.Frame):
     def __init__(self, master, text=None, textvariable=None):
         super().__init__(master)
-        self.pack(fill=ttk.X)
+        self.pack(fill=ttkc.X)
         self.button = ttk.Button(self, text=text, textvariable=textvariable)
-        self.button.pack(side=ttk.LEFT, fill=ttk.X, expand=True)
+        self.button.pack(side=ttkc.LEFT, fill=ttkc.X, expand=True)
 
     def set_text(self, text):
         self.button.config(text=text)
@@ -82,11 +84,11 @@ class ButtonRow(ttk.Frame):
 class ProgressRow(ttk.Frame):
     def __init__(self, master, font=None):
         super().__init__(master)
-        self.pack(fill=ttk.X)
+        self.pack(fill=ttkc.X)
         self.label = ttk.Label(self, font=font)
         self.label.pack()
         self.progressbar = ttk.Progressbar(self)
-        self.progressbar.pack(fill=ttk.X, expand=True)
+        self.progressbar.pack(fill=ttkc.X, expand=True)
         self.loop = asyncio.get_running_loop()
 
     def iterate(self, iterable, unit='it'):
@@ -124,21 +126,21 @@ class ProgressRow(ttk.Frame):
 class LabelRow(ttk.Frame):
     def __init__(self, master, text):
         super().__init__(master)
-        self.pack(fill=ttk.X)
+        self.pack(fill=ttkc.X)
         self.label = ttk.Label(self, text=text)
-        self.label.pack(side=ttk.LEFT)
+        self.label.pack(side=ttkc.LEFT)
 
 class StatusLabelRow(LabelRow):
     def __init__(self, master, label_text, status_text='', textvariable=None):
         super().__init__(master, label_text)
         self.status = ttk.Label(self, text=status_text, textvariable=textvariable)
-        self.status.pack(side=ttk.LEFT)
+        self.status.pack(side=ttkc.LEFT)
 
 class CheckbuttonLabelRow(LabelRow):
     def __init__(self, master, text, variable=None):
         super().__init__(master, text)
         self.checkbutton = ttk.Checkbutton(self, variable=variable)
-        self.checkbutton.pack(side=ttk.LEFT)
+        self.checkbutton.pack(side=ttkc.LEFT)
 
 def check_digit(p):
     return str(p).isdigit() or str(p) == ''
@@ -149,19 +151,19 @@ class EntryLabelRow(LabelRow):
         self.textvariable = textvariable or ttk.StringVar()
         kwargs = {}
         if numbers:
-            kwargs['validate'] = ttk.ALL
+            kwargs['validate'] = ttkc.ALL
             proc = self.register(check_digit)
             kwargs['validatecommand'] = (proc, '%P')
         kwargs['textvariable'] = self.textvariable
         self.entry = ttk.Entry(self, **kwargs)
-        self.entry.pack(side=ttk.LEFT, fill=ttk.X, expand=True)
+        self.entry.pack(side=ttkc.LEFT, fill=ttkc.X, expand=True)
         self.button = None
         if button_text is not None:
             self.button = ttk.Button(self, text=button_text)
-            self.button.pack(side=ttk.LEFT)
+            self.button.pack(side=ttkc.LEFT)
 
     def enable(self, state):
-        self.entry.config(state=ttk.NORMAL if state else ttk.DISABLED)
+        self.entry.config(state=ttkc.NORMAL if state else ttkc.DISABLED)
 
 def get_nearest_dir(path):
     path = timelapse.expand_path(path).absolute()
@@ -211,8 +213,8 @@ class ComboboxLabelRow(LabelRow):
         self.index_var = index_variable
         if self.index_var is None:
             self.index_var = ttk.IntVar(value=0)
-        self.combobox = ttk.Combobox(self, state=ttk.READONLY)
-        self.combobox.pack(side=ttk.LEFT, fill=ttk.X, expand=True)
+        self.combobox = ttk.Combobox(self, state=ttkc.READONLY)
+        self.combobox.pack(side=ttkc.LEFT, fill=ttkc.X, expand=True)
         self.reentering = False
         self.combobox.bind('<<ComboboxSelected>>', self.on_selected)
         self.index_var.trace_add('write', self.var_trace)
@@ -254,7 +256,7 @@ class ComboboxLabelRow(LabelRow):
 class VideoConfigFrame(ttk.Frame):
     def __init__(self, master, shared_vars):
         super().__init__(master)
-        self.pack(fill=ttk.X)
+        self.pack(fill=ttkc.X)
         self.video_types = [
             ('mp4/avc1 - Works with most websites, including Twitter', ('mp4', 'avc1')),
             ('webm/vp80 - Better color quality, but larger file size', ('webm', 'vp80')),
@@ -284,15 +286,15 @@ class VideoConfigFrame(ttk.Frame):
 class StatusArea(ttk.LabelFrame):
     def __init__(self, master, font=None):
         super().__init__(master, text='Status')
-        self.pack(fill=ttk.BOTH, expand=True)
-        self.text = ttk.Text(self, state=ttk.DISABLED, font=font, width=1, height=1)
-        self.text.pack(fill=ttk.BOTH, expand=True)
+        self.pack(fill=ttkc.BOTH, expand=True)
+        self.text = ttk.Text(self, state=ttkc.DISABLED, font=font, width=1, height=1)
+        self.text.pack(fill=ttkc.BOTH, expand=True)
 
     def append(self, text):
-        self.text.config(state=ttk.NORMAL)
-        self.text.insert(index=ttk.END, chars=f'{text}\n')
-        self.text.see(ttk.END)
-        self.text.config(state=ttk.DISABLED)
+        self.text.config(state=ttkc.NORMAL)
+        self.text.insert(index=ttkc.END, chars=f'{text}\n')
+        self.text.see(ttkc.END)
+        self.text.config(state=ttkc.DISABLED)
 
 class AsyncWidgetLogger(logging.Handler):
     def __init__(self, widget):
@@ -317,7 +319,7 @@ def make_image_size_limit_box(master, textvariable=None):
 
 def make_notebook_frame(notebook, text):
     frame = ttk.Frame(notebook)
-    frame.pack(fill=ttk.BOTH, expand=True)
+    frame.pack(fill=ttkc.BOTH, expand=True)
     notebook.add(frame, text=text)
     return frame
 
@@ -416,7 +418,7 @@ class App(asynctk.AsyncTk):
         #########################################################
         # GUI widgets and layout
         notebook = ttk.Notebook(self)
-        notebook.pack(side=ttk.TOP, fill=ttk.X)
+        notebook.pack(side=ttkc.TOP, fill=ttkc.X)
 
         sai_frame = make_notebook_frame(notebook, 'SAI Recording')
         make_frames_entry(sai_frame, self.frames_file_var)
@@ -453,10 +455,10 @@ class App(asynctk.AsyncTk):
         logging.getLogger().addHandler(logger)
 
         meta_config = ttk.Frame(self)
-        meta_config.pack(fill=ttk.X)
-        ttk.Label(meta_config, text='Theme:').pack(side=ttk.LEFT)
-        meta_config_theme_box = ttk.Combobox(meta_config, state=ttk.READONLY)
-        meta_config_theme_box.pack(side=ttk.LEFT)
+        meta_config.pack(fill=ttkc.X)
+        ttk.Label(meta_config, text='Theme:').pack(side=ttkc.LEFT)
+        meta_config_theme_box = ttk.Combobox(meta_config, state=ttkc.READONLY)
+        meta_config_theme_box.pack(side=ttkc.LEFT)
         meta_config_theme_box.config(values=ttk.Style().theme_names(), textvariable=meta_config_theme_var)
 
         tooltip.ToolTip(self.sai_version_override_box, 'If the running SAI version cannot be detected, the selected override will be used.')

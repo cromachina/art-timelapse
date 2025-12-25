@@ -27,6 +27,24 @@
             psutil
           ];
         };
+        ttkbootstrap = pyPkgs.buildPythonPackage {
+          pname = "ttkbootstrap";
+          version = "1.19.2";
+          src = pkgs.fetchFromGitHub {
+            owner = "israel-dryer";
+            repo = "ttkbootstrap";
+            rev = "37f01d70131ef48da4be01f3dec6028facbfc788";
+            hash = "sha256-VH2n1NQro50wAilb1p+erc3qR7EsHKlKymy6iQJQSNs=";
+          };
+          format = "pyproject";
+          doCheck = false;
+          build-system = with pyPkgs; [
+            setuptools
+          ];
+          propagatedBuildInputs = with pyPkgs; [
+            pillow
+          ];
+        };
       };
       pyproject = builtins.fromTOML (builtins.readFile ./pyproject.toml);
       project = pyproject.project;
