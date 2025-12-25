@@ -385,17 +385,20 @@ class InputTracker(EventTrackerBase):
         self.start()
 
     def on_click_callback(self, x, y, _button, is_pressed):
-        if is_pressed:
-            window = pywinctl.getTopWindowAt(x, y)
-            if window is None:
-                return
-            self.click_started_in_window = window.getHandle() == self.target_window.getHandle()
-            if self.click_started_in_window:
-                bbox = window.rect if self.bbox is None else self.bbox
-                self.click_started_in_window = point_in_bbox(bbox, (x, y))
-        if not is_pressed and self.click_started_in_window:
-            self.click_started_in_window = False
-            self.emit_event()
+        try:
+            if is_pressed:
+                window = pywinctl.getTopWindowAt(x, y)
+                if window is None:
+                    return
+                self.click_started_in_window = window.getHandle() == self.target_window.getHandle()
+                if self.click_started_in_window:
+                    bbox = window.rect if self.bbox is None else self.bbox
+                    self.click_started_in_window = point_in_bbox(bbox, (x, y))
+            if not is_pressed and self.click_started_in_window:
+                self.click_started_in_window = False
+                self.emit_event()
+        except:
+            pass
 
     async def track_window(self):
         while self.target_window.isAlive:
