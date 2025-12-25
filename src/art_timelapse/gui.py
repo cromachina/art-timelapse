@@ -283,7 +283,7 @@ class VideoConfigFrame(ttk.Frame):
     def set_button_callback(self, callback):
         self.button.set_callback(callback)
 
-class StatusArea(ttk.LabelFrame):
+class StatusArea(ttk.Labelframe):
     def __init__(self, master, font=None):
         super().__init__(master, text='Status')
         self.pack(fill=ttkc.BOTH, expand=True)
