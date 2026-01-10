@@ -402,12 +402,16 @@ class InputTracker(EventTrackerBase):
 
     async def track_window(self):
         while self.target_window.isAlive:
+            try:
+                self._title = self.target_window.title
+            except:
+                pass
             await asyncio.sleep(0.1)
         logging.info(f'Window lost: {self._title}')
         self.stop_event_stream()
 
     def start(self):
-        logging.info(f'Tracking input for window: {self.target_window.title}')
+        logging.info(f'Tracking input for window: {self._title}')
         self.mouse_listener = pynput.mouse.Listener(on_click=self.on_click_callback)
         self.mouse_listener.start()
         self._wait_task = asyncio.create_task(self.track_window())
@@ -415,7 +419,7 @@ class InputTracker(EventTrackerBase):
     def stop(self):
         self.mouse_listener.stop()
         self._wait_task.cancel()
-        logging.info(f'Stopped tracking window: {self.target_window.title}')
+        logging.info(f'Stopped tracking window: {self._title}')
 
 # Track a file and when it gets saved/closed.
 class FileTracker(FileSystemEventHandler, EventTrackerBase):
