@@ -11,7 +11,7 @@ import time
 import tkinter as tk
 import ttkbootstrap as ttk
 import ttkbootstrap.constants as ttkc
-from ttkbootstrap.widgets import tooltip
+from ttkbootstrap.widgets import tooltip, scrolled
 from tkinter import filedialog
 
 from . import asynctk, timelapse, sai
@@ -287,14 +287,15 @@ class StatusArea(ttk.Labelframe):
     def __init__(self, master, font=None):
         super().__init__(master, text='Status')
         self.pack(fill=ttkc.BOTH, expand=True)
-        self.text = ttk.Text(self, state=ttkc.DISABLED, font=font, width=1, height=1)
+        self.text = scrolled.ScrolledText(self, font=font, width=1, height=1)
+        self.text.text.config(state=ttkc.DISABLED)
         self.text.pack(fill=ttkc.BOTH, expand=True)
 
     def append(self, text):
-        self.text.config(state=ttkc.NORMAL)
+        self.text.text.config(state=ttkc.NORMAL)
         self.text.insert(index=ttkc.END, chars=f'{text}\n')
         self.text.see(ttkc.END)
-        self.text.config(state=ttkc.DISABLED)
+        self.text.text.config(state=ttkc.DISABLED)
 
 class AsyncWidgetLogger(logging.Handler):
     def __init__(self, widget):
