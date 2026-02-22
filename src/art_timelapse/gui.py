@@ -13,6 +13,8 @@ import ttkbootstrap as ttk
 import ttkbootstrap.constants as ttkc
 from ttkbootstrap.widgets import tooltip, scrolled
 from tkinter import filedialog
+from PIL import Image, ImageTk
+import cv2
 
 from . import asynctk, timelapse, sai
 
@@ -136,6 +138,24 @@ class StatusLabelRow(LabelRow):
         self.status = ttk.Label(self, text=status_text, textvariable=textvariable)
         self.status.pack(side=ttkc.LEFT)
 
+class ImageLabelRow(LabelRow):
+    def __init__(self, master, text):
+        super().__init__(master, text)
+        self.canvas = ttk.Canvas(self, height=100, width=100)
+        self.canvas.pack(side=ttkc.LEFT)
+        self.image_tag = None
+
+    def set_image(self, image):
+        self.image = ImageTk.PhotoImage(image)
+        if self.image_tag is None:
+            self.image_tag = self.canvas.create_image(50, 50, anchor=ttkc.CENTER, image=self.image)
+        self.canvas.itemconfig(self.image_tag, image=self.image)
+
+    def remove_image(self):
+        if self.image_tag is not None:
+            self.canvas.delete(self.image_tag)
+            self.image_tag = None
+
 class CheckbuttonLabelRow(LabelRow):
     def __init__(self, master, text, variable=None):
         super().__init__(master, text)
@@ -218,6 +238,7 @@ class ComboboxLabelRow(LabelRow):
         self.reentering = False
         self.combobox.bind('<<ComboboxSelected>>', self.on_selected)
         self.index_var.trace_add('write', self.var_trace)
+        self.values = values
         if values is not None:
             self.set_values(values)
 
@@ -242,6 +263,7 @@ class ComboboxLabelRow(LabelRow):
 
     def set_values(self, values):
         self.combobox.config(values=values)
+        self.values = values
         try:
             if isinstance(self.index_var, ttk.StringVar):
                 self.combobox.current(values.index(self.index_var.get()))
@@ -252,6 +274,9 @@ class ComboboxLabelRow(LabelRow):
                 self.combobox.current(0)
             else:
                 self.combobox.set('')
+
+    def get_values(self):
+        return self.values
 
 class VideoConfigFrame(ttk.Frame):
     def __init__(self, master, shared_vars):
@@ -426,6 +451,7 @@ class App(asynctk.AsyncTk):
         StatusLabelRow(sai_frame, 'SAI version detected:', textvariable=self.sai_version_status_var)
         self.sai_version_override_box = ComboboxLabelRow(sai_frame, 'SAI version override', values=[api.version_name for api in sai.get_sai_api_list()], index_variable=self.sai_version_override_var)
         self.sai_canvas_box = ComboboxLabelRow(sai_frame, 'Canvas', index_variable=self.sai_canvas_var)
+        self.sai_canvas_preview = ImageLabelRow(sai_frame, 'Canvas preview')
         make_image_size_limit_box(sai_frame, textvariable=self.image_size_limit_var)
         self.sai_recording_frame = VideoConfigFrame(sai_frame, recording_vars)
 
@@ -509,10 +535,9 @@ class App(asynctk.AsyncTk):
         self.sai_proc = None
         self.last_pid = None
         self.current_pid = None
-        def on_override_changed(*_args):
-            self.clear_sai_proc()
-            self.set_sai_proc()
-        self.sai_version_override_var.trace_add('write', on_override_changed)
+
+        self.sai_version_override_var.trace_add('write', self.on_version_override_changed)
+        self.sai_canvas_var.trace_add('write', self.on_canvas_selected)
         self.sai_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_sai))
         self.psd_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_psd))
         self.screen_click_button.set_callback(self.recording_wrapper(True, self.record_screen, grab=False))
@@ -527,20 +552,52 @@ class App(asynctk.AsyncTk):
         self.background_task = asyncio.create_task(self.run_background_task())
         self.operation_thread_running = False
         self.operation_task: asyncio.Task | None = None
+        self.canvas_preview_task: asyncio.Task | None = None
 
     def cleanup(self):
         self.win_size_var.set((self.winfo_width(), self.winfo_height()))
         self.settings.save()
         self.pid_scan_event.set()
         self.operation_thread_running = False
-        for task in [self.background_task, self.operation_task]:
-            if task is not None:
+        for task in [self.background_task, self.operation_task, self.canvas_preview_task]:
+            if task is not None and not task.done():
                 task.cancel()
                 try:
                     ex = task.exception()
                     logging.exception(ex)
                 except:
                     pass
+
+    def on_version_override_changed(self, *_args):
+        self.clear_sai_proc()
+        self.set_sai_proc()
+
+    def on_canvas_selected(self, *_args):
+        self.set_canvas_preview()
+
+    def set_canvas_preview(self, load_wait=False):
+        if self.sai_proc is None:
+            self.sai_canvas_preview.remove_image()
+            return
+        if self.canvas_preview_task is not None:
+            self.canvas_preview_task.cancel()
+        async def task():
+            canvases = self.sai_proc.get_canvas_list()
+            if not canvases:
+                self.sai_canvas_preview.remove_image()
+                return
+            target_canvas = canvases[self.sai_canvas_box.get_index()]
+            def canvas_get():
+                if load_wait:
+                    time.sleep(1.0)
+                image = self.sai_proc.get_canvas_image(target_canvas)
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(image)
+                image.thumbnail((100, 100))
+                return image
+            image = await asyncio.to_thread(canvas_get)
+            self.sai_canvas_preview.set_image(image)
+        self.canvas_preview_task = asyncio.create_task(task())
 
     def clear_sai_proc(self):
         if self.sai_proc is not None:
@@ -550,7 +607,10 @@ class App(asynctk.AsyncTk):
 
     def refresh_sai_canvses(self):
         canvases = [f'{canvas.get_name()} ({canvas.get_short_path()})' for canvas in self.sai_proc.get_canvas_list()]
+        previous_canvases = self.sai_canvas_box.get_values()
         self.sai_canvas_box.set_values(canvases)
+        if canvases != previous_canvases:
+            self.set_canvas_preview(load_wait=True)
 
     def pid_scan_thread(self):
         while not self.pid_scan_event.wait(0.25):
@@ -634,7 +694,7 @@ class App(asynctk.AsyncTk):
             container, codec = self.sai_recording_frame.get_format()
             image_size_limit = self.image_size_limit_var.get()
             canvases = sai_proc.get_canvas_list()
-            if len(canvases) == 0:
+            if not canvases:
                 logging.info('There are no canvases open')
                 return
             canvas = canvases[self.sai_canvas_box.get_index()]
