@@ -476,11 +476,18 @@ class App(asynctk.AsyncTk):
         # Init and callbacks
         self.geometry('{}x{}'.format(*self.win_size_var.get()))
 
-        notebook.select(notebook.tabs()[self.selected_tab_var.get()])
         def on_notebook_tab_changed(*_args):
-            self.selected_tab_thread_safe = notebook.index(notebook.select())
-            self.selected_tab_var.set(self.selected_tab_thread_safe)
+            index = notebook.index(notebook.select())
+            self.selected_tab_thread_safe = index
+            self.selected_tab_var.set(index)
+            notebook.config(height=notebook.winfo_children()[index].winfo_reqheight())
         notebook.bind('<<NotebookTabChanged>>', on_notebook_tab_changed)
+        notebook.select(notebook.tabs()[self.selected_tab_var.get()])
+        def hack_fix_size():
+            if notebook.winfo_height() <= 1:
+                on_notebook_tab_changed()
+                self.after(10, hack_fix_size)
+        self.after(10, hack_fix_size)
 
         meta_config_theme_var.trace_add('write', lambda *_: ttk.Style(meta_config_theme_var.get()))
         meta_config_theme_var.set(meta_config_theme_var.get())
