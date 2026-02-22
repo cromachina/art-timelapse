@@ -29,12 +29,12 @@
         };
         ttkbootstrap = pyPkgs.buildPythonPackage rec {
           pname = "ttkbootstrap";
-          version = "1.19.2";
+          version = "1.20.1";
           src = pkgs.fetchFromGitHub {
             owner = "israel-dryer";
             repo = "ttkbootstrap";
             rev = "v${version}";
-            hash = "sha256-RQTzJRC8h3s+Tebd2Z4SivXD5uz/mZnBI5FJusBOs4E=";
+            hash = "sha256-HZiLd134J0I+4egpLjTO+b+ZSyRjBSH8bf69jLOjAh0=";
           };
           format = "pyproject";
           doCheck = false;
