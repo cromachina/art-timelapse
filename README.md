@@ -146,3 +146,34 @@ Clipboard will also probably not work between the host and Xwayland windows. I d
 - Linux AppImage
 
 https://github.com/cromachina/art-timelapse/assets/82557197/3e10a9d4-d855-4e91-8070-8f21aa9c350c
+
+### Dev notes:
+#### Procedure for locating the canvas storage pointer in a different SAIv2 version.
+The goal is the find a route from the canvas storage pointer to the canvas composite data.
+1. Open SAI.
+2. Open canvas with a color pattern in the upper left corner, for example:
+   Paint randomly colored pixels in the format of `BGRA` like the following (`A` will always be `00`).
+   ```
+   FF 30 00 00 00 46 FF 00 00 FF 91 00
+   ```
+3. Open Cheat Engine and attach to SAI.
+4. Run a scan for the byte array pattern above. You are looking for the pattern at a page aligned address, like `xxxx0000`. If you use at least 3 pixels (12 bytes), you'll usually end up with a single result. This address is the canvas composite data's first block.
+5. Save that found address to the address list.
+6. Create a new pointer map and save it (like pmap1.scandata).
+7. Save the canvas and close it, then reopen it.
+8. Repeat steps 4 to 7 while saving a new pointer map each time, at least 3 times total, however leave the last canvas open after saving the last map.
+9. Right click on the last address saved and run "Pointer scan for this address".
+10. Select "Use saved pointermap" and select the last pointer map saved.
+11. Select "Compare results with other saved pointermaps"
+12. Add each successive pointer map and its associated address.
+13. Select other options:
+ - Only find paths with a static address
+ - Don't include pointers with read-only nodes
+ - No looping pointers
+ - Max different offsets per node: 3
+ - Maximum offset value: 4095
+ - Max level: 7
+14. Click okay to run the scan. Hopefully a very short list appears, with maybe 20 to 30 entries.
+15. The address with a `0` in the `Offset 0` column is most likely the target. This may not always be true for every version, but it greatly narrows down the potential pointers for further analysis.
+
+Unless there is a major refactor, the layouts of structures do not seem to change much, so often adding support for another version is just searching for the canvas storage pointer location and deriving a new SAI API class from the previous version.

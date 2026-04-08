@@ -233,10 +233,10 @@ class SAIv2_API_Base(SAI_API_Base):
         return image[0 : canvas.height, 0 : canvas.width, :3]
 
 @register_sai_api
-class SAIv2_API_2024_11_23(SAIv2_API_Base):
-    version_name = 'SAI Ver.2 (64bit) Preview.2024.11.23'
-    exe_hash = 'bd60d6750ef57668f9bc44eb98d992c4'
-    canvas_list_offset = 0x322620
+class SAIv2_API_2023_07_11(SAIv2_API_Base):
+    version_name = 'SAI Ver.2 (64bit) Preview.2023.07.11'
+    exe_hash = 'f8df4067657d811e6e48c37c5b0f8fc5'
+    canvas_list_offset = 0x31af20
 
     class SAICanvasTileMap(ctypes.Structure):
         _pack_ = 1
@@ -264,6 +264,12 @@ class SAIv2_API_2024_11_23(SAIv2_API_Base):
             (0x2ac, 'name', ctypes.c_uint16 * 0x100),
             (0x4ac, 'short_path', ctypes.c_uint16 * 0x100)
         ])
+
+@register_sai_api
+class SAIv2_API_2024_11_23(SAIv2_API_2023_07_11):
+    version_name = 'SAI Ver.2 (64bit) Preview.2024.11.23'
+    exe_hash = 'bd60d6750ef57668f9bc44eb98d992c4'
+    canvas_list_offset = 0x322620
 
 def get_pid_by_name(name:str) -> int | None:
     psutil.process_iter.cache_clear()
