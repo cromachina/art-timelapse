@@ -22,6 +22,7 @@ async def async_main():
     parser.add_argument('--container', default='webm', help='The format to store video in, for example "webm", "mp4", "avi". Default for storage is webm with VP8 codec for better color quality, but it takes up more space than mp4 with avc1.')
     parser.add_argument('--codec', default='vp80', help='The fourcc for the video container\'s codec. Default for storage is VP8 (vp80).')
     parser.add_argument('--web', action='store_true', help='Sets the video container and codec to "mp4" and "avc1" respectively, which is what Twitter and many other websites expect for video uploads. Use this with --export.')
+    parser.add_argument('--version', action='version', version=timelapse.__version__)
     config = parser.parse_args()
     if config.cli:
         await timelapse.main(config)

@@ -404,7 +404,7 @@ class Settings:
 class App(asynctk.AsyncTk):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.title('art-timelapse')
+        self.title(f'art-timelapse {timelapse.__version__}')
         self.settings = Settings('.art-timelapse')
         fixed_font = get_fixed_font()
 

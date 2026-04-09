@@ -4,6 +4,7 @@ import time
 import tkinter as tk
 import logging
 import sys
+import importlib.metadata
 
 from PIL import Image, ImageOps, ImageTk
 from psd_tools import PSDImage
@@ -17,6 +18,8 @@ import tqdm
 from mss import mss
 
 from . import asynctk, sai
+
+__version__ = importlib.metadata.version('art-timelapse')
 
 FPS = 30
 
