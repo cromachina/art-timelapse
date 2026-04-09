@@ -12,7 +12,7 @@
     let
       pkgs = nixpkgs.legacyPackages.${system};
       lib = pkgs.lib;
-      python = pkgs.python313;
+      python = pkgs.python314;
       pyPkgs = python.pkgs // {
         pymemoryeditor = pyPkgs.buildPythonPackage {
           pname = "pymemoryeditor";
@@ -46,10 +46,10 @@
           ];
         };
       };
-      pyproject = builtins.fromTOML (builtins.readFile ./pyproject.toml);
+      pyproject = fromTOML (builtins.readFile ./pyproject.toml);
       project = pyproject.project;
       fixString = x: lib.strings.toLower (builtins.replaceStrings ["_"] ["-"] x);
-      getPkgs = x: lib.attrsets.attrVals (builtins.map fixString x) pyPkgs;
+      getPkgs = x: lib.attrsets.attrVals (map fixString x) pyPkgs;
       package = pyPkgs.buildPythonPackage {
         pname = project.name;
         version = project.version;
