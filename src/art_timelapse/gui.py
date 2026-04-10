@@ -582,7 +582,7 @@ class App(asynctk.AsyncTk):
         if self.canvas_preview_task is not None:
             self.canvas_preview_task.cancel()
         async def task():
-            canvases = self.sai_proc.get_canvas_list()
+            canvases = self.sai_proc.api.get_canvas_list()
             if not canvases:
                 self.sai_canvas_preview.remove_image()
                 return
@@ -590,7 +590,8 @@ class App(asynctk.AsyncTk):
             def canvas_get():
                 if load_wait:
                     time.sleep(1.0)
-                image = self.sai_proc.get_canvas_image(target_canvas)
+                map_level = self.sai_proc.api.get_map_level_for_size(target_canvas, 100)
+                image = self.sai_proc.api.get_canvas_image(target_canvas, map_level)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(image)
                 image.thumbnail((100, 100))
@@ -606,7 +607,7 @@ class App(asynctk.AsyncTk):
             self.last_pid = None
 
     def refresh_sai_canvses(self):
-        canvases = [f'{canvas.get_name()} ({canvas.get_short_path()})' for canvas in self.sai_proc.get_canvas_list()]
+        canvases = [f'{canvas.get_name()} ({canvas.get_short_path()})' for canvas in self.sai_proc.api.get_canvas_list()]
         previous_canvases = self.sai_canvas_box.get_values()
         self.sai_canvas_box.set_values(canvases)
         if canvases != previous_canvases:
@@ -693,7 +694,7 @@ class App(asynctk.AsyncTk):
             frames_path = self.frames_file_var.get()
             container, codec = self.sai_recording_frame.get_format()
             image_size_limit = self.image_size_limit_var.get()
-            canvases = sai_proc.get_canvas_list()
+            canvases = sai_proc.api.get_canvas_list()
             if not canvases:
                 logging.info('There are no canvases open')
                 return

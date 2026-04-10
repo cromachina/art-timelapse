@@ -138,8 +138,20 @@ class SAI_API_Base:
     def get_updated_canvas(self, canvas):
         return canvas._self_ptr[self.proc]
 
+    def get_map_level_for_size(self, canvas, size):
+        canvas = self.get_updated_canvas(canvas)
+        level = 0
+        max_dim = max(canvas.width, canvas.height)
+        for i in range(self.map_count):
+            dim = max_dim // (2 ** i)
+            if dim < size:
+                break
+            level = i
+        return level
+
 class SAIv1_API_Base(SAI_API_Base):
     process_name = 'sai.exe'
+    map_count = 1
 
     def get_canvas_list(self):
         canvas_ptr = RPOINTER32(RPOINTER32(self.SAISession))(self.base_address + self.session_offset)[self.proc][self.proc].canvas_list
@@ -148,7 +160,7 @@ class SAIv1_API_Base(SAI_API_Base):
     def check_if_canvas_exists(self, canvas):
         return any((c._self_ptr == canvas._self_ptr for c in self.get_canvas_list()))
 
-    def get_canvas_image(self, canvas):
+    def get_canvas_image(self, canvas, map_level=0):
         canvas = self.get_updated_canvas(canvas)
         lower_pad_x = canvas.lower_pad_x
         lower_pad_y = canvas.lower_pad_y
@@ -167,6 +179,7 @@ class SAIv1_API_1_2_5(SAIv1_API_Base):
 
     class SAIPixelHeap(ctypes.Structure):
         _pack_ = 1
+        _layout_ = 'ms'
         _fields_ = offset_fields([
             (0x4, 'stride_x', ctypes.c_int32),
             (0x8, 'stride_y', ctypes.c_int32),
@@ -175,6 +188,7 @@ class SAIv1_API_1_2_5(SAIv1_API_Base):
 
     class SAICanvas(ctypes.Structure):
         _pack_ = 1
+        _layout_ = 'ms'
 
         def get_name(self):
             return trim_null(self.name.decode())
@@ -197,6 +211,7 @@ class SAIv1_API_1_2_5(SAIv1_API_Base):
 
     class SAISession(ctypes.Structure):
         _pack_ = 1
+        _layout_ = 'ms'
     SAISession._fields_ = offset_fields([
         (0x4c, 'canvas_list', RPOINTER32(SAICanvas)),
     ])
@@ -209,6 +224,7 @@ class SAIv1_API_1_2_6_Beta_3(SAIv1_API_1_2_5):
 
 class SAIv2_API_Base(SAI_API_Base):
     process_name = 'sai2.exe'
+    map_count = 0xb
 
     def get_canvas_list(self):
         canvas_ptr = RPOINTER(RPOINTER(self.SAICanvas))(self.base_address + self.canvas_list_offset)[self.proc]
@@ -217,9 +233,9 @@ class SAIv2_API_Base(SAI_API_Base):
     def check_if_canvas_exists(self, canvas):
         return any((c.id == canvas.id for c in self.get_canvas_list()))
 
-    def get_canvas_image(self, canvas):
+    def get_canvas_image(self, canvas, map_level=0):
         canvas = self.get_updated_canvas(canvas)
-        tile_map = canvas.tile_map[self.proc][self.proc]
+        tile_map = canvas.tile_maps[map_level][self.proc][self.proc]
         tiles_y = tile_map.count_y
         tiles_x = tile_map.count_x
         image = np.empty(shape=(tiles_y * 256, tiles_x * 256, 4), dtype=np.uint8)
@@ -230,7 +246,7 @@ class SAIv2_API_Base(SAI_API_Base):
                 tile = tile_map.tree[self.proc, y][self.proc, x][self.proc, 0, tile_size]
                 tile = np.frombuffer(tile, dtype=np.uint8).reshape(tile_shape)
                 image[y * 256 : (y + 1) * 256, x * 256 : (x + 1) * 256] = tile
-        return image[0 : canvas.height, 0 : canvas.width, :3]
+        return image[0 : tile_map.height, 0 : tile_map.width, :3]
 
 @register_sai_api
 class SAIv2_API_2023_07_11(SAIv2_API_Base):
@@ -240,14 +256,19 @@ class SAIv2_API_2023_07_11(SAIv2_API_Base):
 
     class SAICanvasTileMap(ctypes.Structure):
         _pack_ = 1
+        _layout_ = 'ms'
+
         _fields_ = offset_fields([
             (0x08, 'tree', RPOINTER(RPOINTER(RPOINTER(ctypes.c_uint8)))),
+            (0x10, 'width', ctypes.c_int32),
+            (0x14, 'height', ctypes.c_int32),
             (0x18, 'count_x', ctypes.c_int32),
             (0x1c, 'count_y', ctypes.c_int32),
         ])
 
     class SAICanvas(ctypes.Structure):
         _pack_ = 1
+        _layout_ = 'ms'
 
         def get_name(self):
             return from_wide_str(self.name)
@@ -258,7 +279,7 @@ class SAIv2_API_2023_07_11(SAIv2_API_Base):
     SAICanvas._fields_ = offset_fields([
             (0x000, 'next_canvas', RPOINTER(SAICanvas)),
             (0x020, 'id', ctypes.c_int32),
-            (0x028, 'tile_map', RPOINTER(RPOINTER(SAICanvasTileMap))),
+            (0x028, 'tile_maps', RPOINTER(RPOINTER(SAICanvasTileMap)) * 0xb),
             (0x250, 'width', ctypes.c_int32),
             (0x254, 'height', ctypes.c_int32),
             (0x2ac, 'name', ctypes.c_uint16 * 0x100),
@@ -376,19 +397,10 @@ class SAI:
     def get_pid(self):
         return self.proc.pid
 
-    def get_canvas_list(self):
-        return self.api.get_canvas_list()
-
-    def get_canvas_image(self, canvas):
-        return self.api.get_canvas_image(canvas)
-
-    def check_if_canvas_exists(self, canvas):
-        return self.api.check_if_canvas_exists(canvas)
-
 def test():
     with SAI() as sai:
         canvas = sai.get_canvas_list()[0]
         print('Canvas name:', canvas.get_name())
-        img = sai.get_canvas_image(canvas)
+        img = sai.get_canvas_image(canvas, 5)
         import cv2
         cv2.imwrite('test.jpg', img)

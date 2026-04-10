@@ -487,7 +487,7 @@ def cli_export(config):
 
 def select_canvas(sai_proc):
     while True:
-        canvas_list = sai_proc.get_canvas_list()
+        canvas_list = sai_proc.api.get_canvas_list()
         if len(canvas_list) == 0:
             logging.info('No open canvases detected.')
             return None
@@ -519,10 +519,11 @@ async def sai_capture(sai_proc, canvas, image_size_limit, frames, container, cod
     with VideoSequenceWriter(frames, container, codec) as writer, InputTracker(window) as tracker:
         last_img = None
         async for _ in tracker.get_event_stream():
-            if not sai_proc.check_if_canvas_exists(canvas):
+            if not sai_proc.api.check_if_canvas_exists(canvas):
                 logging.info('Canvas lost, stopping now')
                 break
-            img = sai_proc.get_canvas_image(canvas)
+            map_level = sai_proc.api.get_map_level_for_size(canvas, image_size_limit)
+            img = sai_proc.api.get_canvas_image(canvas, map_level)
             if not is_different_image(last_img, img):
                 continue
             last_img = img
