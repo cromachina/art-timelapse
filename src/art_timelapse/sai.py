@@ -139,15 +139,7 @@ class SAI_API_Base:
         return canvas._self_ptr[self.proc]
 
     def get_map_level_for_size(self, canvas, size):
-        canvas = self.get_updated_canvas(canvas)
-        level = 0
-        max_dim = max(canvas.width, canvas.height)
-        for i in range(self.map_count):
-            dim = max_dim // (2 ** i)
-            if dim < size:
-                break
-            level = i
-        return level
+        return 0
 
 class SAIv1_API_Base(SAI_API_Base):
     process_name = 'sai.exe'
@@ -233,6 +225,16 @@ class SAIv2_API_Base(SAI_API_Base):
     def check_if_canvas_exists(self, canvas):
         return any((c.id == canvas.id for c in self.get_canvas_list()))
 
+    def get_map_level_for_size(self, canvas, size):
+        canvas = self.get_updated_canvas(canvas)
+        map_level = 0
+        for i in range(self.map_count):
+            tile_map = canvas.tile_maps[i][self.proc][self.proc]
+            if tile_map.width < size and tile_map.height < size:
+                break
+            map_level = i
+        return map_level
+
     def get_canvas_image(self, canvas, map_level=0):
         canvas = self.get_updated_canvas(canvas)
         tile_map = canvas.tile_maps[map_level][self.proc][self.proc]
@@ -279,7 +281,7 @@ class SAIv2_API_2023_07_11(SAIv2_API_Base):
     SAICanvas._fields_ = offset_fields([
             (0x000, 'next_canvas', RPOINTER(SAICanvas)),
             (0x020, 'id', ctypes.c_int32),
-            (0x028, 'tile_maps', RPOINTER(RPOINTER(SAICanvasTileMap)) * 0xb),
+            (0x028, 'tile_maps', RPOINTER(RPOINTER(SAICanvasTileMap)) * SAIv2_API_Base.map_count),
             (0x250, 'width', ctypes.c_int32),
             (0x254, 'height', ctypes.c_int32),
             (0x2ac, 'name', ctypes.c_uint16 * 0x100),
