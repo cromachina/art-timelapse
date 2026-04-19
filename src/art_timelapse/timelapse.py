@@ -260,10 +260,12 @@ class VideoReader:
 
 # Automatically open and close video writers if the input images change size.
 class VideoSequenceWriter:
-    def __init__(self, frames, container, codec):
+    def __init__(self, frames_path, container, codec, frames_auto_split_count=500):
         self.container = container
         self.codec = codec
-        self.folder = expand_path(frames)
+        self.folder = expand_path(frames_path)
+        self.frames_auto_split_count = frames_auto_split_count
+        self.frames_count = 0
         logging.info(f'Writing to frames folder: {self.folder}; container: {container}; codec: {codec}')
         self.folder.mkdir(parents=True, exist_ok=True)
         self.writer = None
@@ -280,17 +282,19 @@ class VideoSequenceWriter:
 
     def open_new(self, size):
         self.writer = VideoWriter(self.folder / f'{time.time_ns()}', size, self.container, self.codec)
+        self.frames_count = 0
 
     def check_new(self, size):
         if self.writer is None:
             self.open_new(size)
-        elif even_size(size) != self.writer.size:
+        elif even_size(size) != self.writer.size or (self.frames_auto_split_count != 0 and self.frames_count >= self.frames_auto_split_count):
             self.writer.close()
             self.open_new(size)
 
     def write(self, img):
         self.check_new(img.size)
         self.writer.write(img)
+        self.frames_count += 1
 
 # Read a folder of mp4 files as if it were a single contiguous file.
 class VideoSequenceReader:
@@ -512,11 +516,11 @@ def select_canvas(sai_proc):
 def is_different_image(a, b):
     return (a is None or b is None) or (a.shape != b.shape) or (np.any(a != b))
 
-async def sai_capture(sai_proc, canvas, image_size_limit, frames, container, codec, **_):
+async def sai_capture(sai_proc, canvas, image_size_limit, frames, container, codec, auto_split_count, **_):
     window = await get_window_from_pid(sai_proc.get_pid())
     if window is None:
         return
-    with VideoSequenceWriter(frames, container, codec) as writer, InputTracker(window) as tracker:
+    with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, InputTracker(window) as tracker:
         last_img = None
         async for _ in tracker.get_event_stream():
             if not sai_proc.api.check_if_canvas_exists(canvas):
@@ -540,8 +544,8 @@ async def cli_sai_capture(config):
             return
         await sai_capture(sai_proc, canvas, **vars(config))
 
-async def screen_capture(window, bbox, frames, container, codec, **_):
-    with VideoSequenceWriter(frames, container, codec) as writer, InputTracker(window, bbox) as tracker:
+async def screen_capture(window, bbox, frames, container, codec, auto_split_count, **_):
+    with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, InputTracker(window, bbox) as tracker:
         async for _ in tracker.get_event_stream():
             img = grab(sct, window.rect if bbox is None else bbox)
             writer.write(img)
@@ -553,8 +557,8 @@ async def cli_screen_capture(config):
         return
     await screen_capture(window, bbox, **vars(config))
 
-async def psd_capture(psd_file, image_size_limit, frames, container, codec, **_):
-    with VideoSequenceWriter(frames, container, codec) as writer, FileTracker(psd_file) as tracker:
+async def psd_capture(psd_file, image_size_limit, frames, container, codec, auto_split_count, **_):
+    with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, FileTracker(psd_file) as tracker:
         async for _ in tracker.get_event_stream():
             while True:
                 try:

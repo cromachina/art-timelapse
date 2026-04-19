@@ -333,10 +333,13 @@ class AsyncWidgetLogger(logging.Handler):
     def emit(self, record):
         self.loop.call_soon_threadsafe(self.widget.append, self.format(record))
 
-def make_frames_entry(master, textvariable=None):
-    frame = FilePickerEntry(master, 'Frames path', mode='dir', textvariable=textvariable)
-    tooltip.ToolTip(frame, 'Folder where video recording cuts are saved.')
-    return frame
+def make_frames_path_field(master, textvariable=None):
+    frames_path = FilePickerEntry(master, 'Frames path', mode='dir', textvariable=textvariable)
+    tooltip.ToolTip(frames_path, 'Folder where video recording cuts are saved.')
+
+def make_auto_split_field(master, textvariable=None):
+    auto_split = EntryLabelRow(master, 'Auto split count', numbers=True, textvariable=textvariable)
+    tooltip.ToolTip(auto_split, 'Automatically split video output after this many frames. Enter 0 or leave blank to disable. This is useful to mitigate the chance of missing or corrupt video data after a system crash.')
 
 def make_image_size_limit_box(master, textvariable=None):
     frame = EntryLabelRow(master, 'Image size limit (px)', numbers=True, textvariable=textvariable)
@@ -412,6 +415,9 @@ class App(asynctk.AsyncTk):
         # Tk variables
         self.win_size_var = self.settings.get_var('win_size', (600, 600))
         self.frames_file_var = self.settings.get_var('frames_file', '')
+        self.auto_split_sai_var = self.settings.get_var('auto_split_sai', 500)
+        self.auto_split_psd_var = self.settings.get_var('auto_split_psd', 10)
+        self.auto_split_screen_var = self.settings.get_var('auto_split_screen', 500)
         self.recording_button_text_var = StackStringVar(value='Start Recording')
         self.export_button_text_var = StackStringVar(value='Export')
         recording_vars = {
@@ -446,8 +452,12 @@ class App(asynctk.AsyncTk):
         notebook = ttk.Notebook(self)
         notebook.pack(side=ttkc.TOP, fill=ttkc.X)
 
+        def mk_fields(master):
+            make_auto_split_field(master, self.auto_split_var)
+
         sai_frame = make_notebook_frame(notebook, 'SAI Recording')
-        make_frames_entry(sai_frame, self.frames_file_var)
+        make_frames_path_field(sai_frame, self.frames_file_var)
+        make_auto_split_field(sai_frame, self.auto_split_sai_var)
         StatusLabelRow(sai_frame, 'SAI version detected:', textvariable=self.sai_version_status_var)
         self.sai_version_override_box = ComboboxLabelRow(sai_frame, 'SAI version override', values=[api.version_name for api in sai.get_sai_api_list()], index_variable=self.sai_version_override_var)
         self.sai_canvas_box = ComboboxLabelRow(sai_frame, 'Canvas', index_variable=self.sai_canvas_var)
@@ -456,20 +466,22 @@ class App(asynctk.AsyncTk):
         self.sai_recording_frame = VideoConfigFrame(sai_frame, recording_vars)
 
         psd_frame = make_notebook_frame(notebook, 'PSD Recording')
-        make_frames_entry(psd_frame, self.frames_file_var)
+        make_frames_path_field(psd_frame, self.frames_file_var)
+        make_auto_split_field(psd_frame, self.auto_split_psd_var)
         psd_file_entry = FilePickerEntry(psd_frame, 'PSD file', mode='open', filetypes=[('PSD', '.psd .psb'), ('Any', '*.*')], textvariable=self.psd_file_var)
         make_image_size_limit_box(psd_frame, textvariable=self.image_size_limit_var)
         self.psd_recording_frame = VideoConfigFrame(psd_frame, recording_vars)
 
         screen_frame = make_notebook_frame(notebook, 'Screen Recording')
-        make_frames_entry(screen_frame, self.frames_file_var)
+        make_frames_path_field(screen_frame, self.frames_file_var)
+        make_auto_split_field(screen_frame, self.auto_split_screen_var)
         self.screen_recording_frame = VideoConfigFrame(screen_frame, recording_vars)
         self.screen_recording_frame.button.forget()
         self.screen_click_button = ButtonRow(screen_frame, textvariable=self.screen_click_button_var)
         self.screen_grab_button = ButtonRow(screen_frame, textvariable=self.screen_grab_button_var)
 
         export_frame = make_notebook_frame(notebook, 'Export Video')
-        make_frames_entry(export_frame, self.frames_file_var)
+        make_frames_path_field(export_frame, self.frames_file_var)
         export_file_entry = FilePickerEntry(export_frame, 'Export file', mode='save', textvariable=self.export_file_var)
         export_time_limit_entry = EntryLabelRow(export_frame, 'Export time limit', numbers=True, textvariable=self.export_time_limit_var)
         export_fps_entry = EntryLabelRow(export_frame, 'Export FPS', numbers=True, textvariable=self.export_fps_var)
@@ -691,22 +703,24 @@ class App(asynctk.AsyncTk):
             logging.info('No valid SAI process found')
             return
         with sai.SAI(type(self.sai_proc.api)) as sai_proc:
-            frames_path = self.frames_file_var.get()
-            container, codec = self.sai_recording_frame.get_format()
-            image_size_limit = self.image_size_limit_var.get()
             canvases = sai_proc.api.get_canvas_list()
             if not canvases:
                 logging.info('There are no canvases open')
                 return
             canvas = canvases[self.sai_canvas_box.get_index()]
-            await timelapse.sai_capture(sai_proc, canvas, image_size_limit, frames_path, container, codec)
+            frames_path = self.frames_file_var.get()
+            container, codec = self.sai_recording_frame.get_format()
+            image_size_limit = self.image_size_limit_var.get()
+            auto_split = self.auto_split_sai_var.get()
+            await timelapse.sai_capture(sai_proc, canvas, image_size_limit, frames_path, container, codec, auto_split)
 
     async def record_psd(self):
         frames_path = self.frames_file_var.get()
         container, codec = self.sai_recording_frame.get_format()
         image_size_limit = self.image_size_limit_var.get()
         psd_file = self.psd_file_var.get()
-        await timelapse.psd_capture(psd_file, image_size_limit, frames_path, container, codec)
+        auto_split = self.auto_split_psd_var.get()
+        await timelapse.psd_capture(psd_file, image_size_limit, frames_path, container, codec, auto_split)
 
     async def record_screen(self, grab):
         window, bbox = await timelapse.get_window_and_bbox(grab)
@@ -714,7 +728,8 @@ class App(asynctk.AsyncTk):
             return
         frames_path = self.frames_file_var.get()
         container, codec = self.sai_recording_frame.get_format()
-        await timelapse.screen_capture(window, bbox, frames_path, container, codec)
+        auto_split = self.auto_split_screen_var.get()
+        await timelapse.screen_capture(window, bbox, frames_path, container, codec, auto_split)
 
     async def export(self):
         frames_path = self.frames_file_var.get()

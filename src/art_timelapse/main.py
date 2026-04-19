@@ -12,6 +12,7 @@ async def async_main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cli', action='store_true', help='Run as a CLI app instead of a GUI app.')
     parser.add_argument('--frames', help='Name of the file or directory to store frames or videos.')
+    parser.add_argument('--auto-split-count', help='Automatically create a new video split after this amount of frames, or 0 to disable. Default 0. Useful to mitigate the chance of unwritten or corrupt video data in the event of a system crash.')
     parser.add_argument('--sai', action='store_true', help='Read SAI\'s memory directly to capture frames. Prompts for canvas selection.')
     parser.add_argument('--psd-file', help='Instead of screen recording, record the specified PSD file every time it is written to.')
     parser.add_argument('--image-size-limit', type=int, default=1000, help='Limit the resolution from a PSD or SAI capture.')

@@ -8,6 +8,13 @@ Cutting dead air from the videos; Concatenating separate recordings together; Sp
 While it is possible to mitigate these issues when using OBS Studio, I wanted a more accurate solution that works sort of like Clip Studio's timelapse feature.
 By recording the end of each stroke of a drawing, you get the largest amount of information about the timelapse without any redundancy, which can end up creating compact videos with minimal editing.
 
+### Corrupt video recovery after system crash
+If you have a system crash or power failure while you were recording, the resulting video may be truncated and have missing header information.
+Some frames may be lost if they were not flushed to disk before the crash occurred. Anything that was written to disk may still be recoverable.
+You first need to make a reference video file from which to restore header information, so create a new short recording, perferably with the same dimensions as the corrupt video.
+Then use a recovery tool that can use the reference video to fix the corrupt video, such as https://github.com/anthwlock/untrunc. This may also be done with FFMPEG https://www.handyrecovery.com/fix-corrupted-video-using-ffmpeg/.
+In order to mitigate the chance that a recorded video is completely unrecoverable, you can configure a setting in this tool to automatically split recorded output after some number of frames, so that smaller video files are completely written more frequently.
+
 ### GUI usage
 - The default mode is to run a GUI and most options have tooltips.
 
