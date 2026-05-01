@@ -550,6 +550,7 @@ class App(asynctk.AsyncTk):
 
         self.sai_version_override_var.trace_add('write', self.on_version_override_changed)
         self.sai_canvas_var.trace_add('write', self.on_canvas_selected)
+        self.bind('<FocusIn>', self.on_canvas_selected)
         self.sai_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_sai))
         self.psd_recording_frame.set_button_callback(self.recording_wrapper(True, self.record_psd))
         self.screen_click_button.set_callback(self.recording_wrapper(True, self.record_screen, grab=False))
@@ -585,9 +586,9 @@ class App(asynctk.AsyncTk):
         self.set_sai_proc()
 
     def on_canvas_selected(self, *_args):
-        self.set_canvas_preview()
+        self.update_canvas_preview()
 
-    def set_canvas_preview(self, load_wait=False):
+    def update_canvas_preview(self, load_wait=False):
         if self.sai_proc is None:
             self.sai_canvas_preview.remove_image()
             return
@@ -623,7 +624,7 @@ class App(asynctk.AsyncTk):
         previous_canvases = self.sai_canvas_box.get_values()
         self.sai_canvas_box.set_values(canvases)
         if canvases != previous_canvases:
-            self.set_canvas_preview(load_wait=True)
+            self.update_canvas_preview(load_wait=True)
 
     def pid_scan_thread(self):
         while not self.pid_scan_event.wait(0.25):
