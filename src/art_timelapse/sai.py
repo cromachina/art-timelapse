@@ -3,11 +3,13 @@ import hashlib
 import sys
 from functools import reduce
 from operator import mul
-import logging
 
 import psutil
 from PyMemoryEditor import OpenProcess
+from PyMemoryEditor.process import AbstractProcess
 import numpy as np
+
+from . import _
 
 def trim_null(data):
     if '\0' in data:
@@ -304,81 +306,48 @@ def get_pid_by_name(name:str) -> int | None:
 def find_running_sai_pid() -> int | None:
     return get_pid_by_name(SAIv1_API_Base.process_name) or get_pid_by_name(SAIv2_API_Base.process_name)
 
-def get_region_data_by_name(proc:OpenProcess, name:str) -> tuple[str, int] | tuple[None, None]:
+def get_region_data_by_name(proc:AbstractProcess, name:str) -> tuple[str, int] | tuple[None, None]:
     for region in proc.get_memory_regions():
         path = region['struct'].Path.decode()
         if name in path:
             return path, region['address']
     return None, None
 
-def get_base_address(proc:OpenProcess) -> int | None:
+def get_base_address(proc:AbstractProcess) -> int | None:
     if 'win' in sys.platform:
         return get_base_address_windows(proc.pid)
     else: # linux
         return get_region_data_by_name(proc, psutil.Process(proc.pid).name())[1]
 
-def get_exe_path(proc:OpenProcess) -> str:
+def get_exe_path(proc:AbstractProcess) -> str:
     psproc = psutil.Process(proc.pid)
     if 'win' in sys.platform:
         return psproc.exe()
     else: # linux
         return get_region_data_by_name(proc, psproc.name())[0]
 
-def get_exe_hash(proc:OpenProcess) -> str | None:
+def get_exe_hash(proc:AbstractProcess) -> str | None:
     exe_path = get_exe_path(proc)
     if not exe_path:
         return None
     with open(exe_path, 'rb') as f:
         return hashlib.file_digest(f, 'md5').hexdigest()
 
-# Used by GUI
-def get_sai_api_from_pid(pid:int, query_override=False) -> SAI_API_Base | None:
+def get_sai_api_from_pid(pid:int) -> SAI_API_Base | None:
     with OpenProcess(pid=pid) as proc:
-        return get_sai_api_from_proc(proc, query_override)
-
-# Used by CLI
-def get_sai_api_from_proc(proc:OpenProcess, query_override=True) -> SAI_API_Base | None:
-    exe_hash = get_exe_hash(proc)
-    found_api = get_sai_api(exe_hash)
-    if query_override and found_api is None:
-        while True:
-            logging.info('SAI version may not be compatible:')
-            logging.info('  Compatible versions:')
-            api_list = get_sai_api_list()
-            for i, api in zip(range(len(api_list)), api_list):
-                logging.info(f'[{i + 1}] {api.version_name}')
-                logging.info(f'        Exe hash: {api.exe_hash}')
-            logging.info(f'  Found exe hash: {exe_hash}')
-            logging.info('Select a version override (Ctrl+C to cancel).')
-            logging.info(f'Enter nothing to pick the latest version ({api_list[-1].version_name}).')
-            res = input(f'Enter index [1-{len(api_list)}]:')
-            try:
-                if res == '':
-                    api = api_list[-1]
-                else:
-                    res = int(res)
-                    api = api_list[res - 1]
-            except ValueError:
-                logging.info('Could not parse input, trying again')
-            except IndexError:
-                logging.info('Index out of range, trying again')
-            else:
-                logging.info(f'Selected version: {api.version_name}')
-                logging.info(f'Warning: Capture may not work correctly if version does not match.')
-                return api
-    else:
-        return found_api
+        exe_hash = get_exe_hash(proc)
+        return get_sai_api(exe_hash)
 
 class SAI:
     def __init__(self, override_api=None):
         self.proc = None
         pid = find_running_sai_pid()
         if pid is None:
-            raise Exception('No SAI process detected.')
+            raise Exception(_('No SAI process detected.'))
         self.proc = OpenProcess(pid=pid)
         self.psutil_proc = psutil.Process(pid=pid)
         if override_api is None:
-            api = get_sai_api_from_proc(self.proc)
+            api = get_sai_api_from_pid(pid)
         else:
             api = override_api
         self.api = api(self.proc, get_base_address(self.proc))

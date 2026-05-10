@@ -14,10 +14,9 @@ import cv2
 import numpy as np
 import pynput
 import pywinctl
-import tqdm
 from mss import mss
 
-from . import asynctk, sai
+from . import asynctk, sai, _
 
 __version__ = importlib.metadata.version('art-timelapse')
 
@@ -102,13 +101,13 @@ class WindowGrabber(tk.Toplevel):
         self.lift()
 
         if drag_area:
-            logging.info('Click and drag on a subwindow to start tracking an area. Right click to cancel.')
+            logging.info(_('Click and drag on a subwindow to start tracking an area. Right click to cancel.'))
             self.bind('<Motion>', self.drag_motion)
             self.bind('<ButtonPress-1>', self.drag_clicked)
             self.bind('<ButtonRelease-1>', self.released)
             self.bind('<ButtonPress-3>', self.set_cancelled)
         else:
-            logging.info('Click on a subwindow to start tracking. Right click to cancel.')
+            logging.info(_('Click on a subwindow to start tracking. Right click to cancel.'))
             self.canvas.delete(self.overlay)
             if 'win' in sys.platform:
                 self.bind('<Motion>', self.scan_motion_win)
@@ -149,7 +148,7 @@ class WindowGrabber(tk.Toplevel):
         self.event.set()
 
     def set_cancelled(self, event):
-        logging.info('Window grab cancelled')
+        logging.info(_('Window grab cancelled'))
         self.cancelled = True
         self.released(event)
 
@@ -199,8 +198,8 @@ async def get_window_from_pid(pid):
         if window.getPID() == pid:
             result = window
     if result is None:
-        logging.info('Could not find window automatically')
-        result, _ = await get_window_and_bbox(False)
+        logging.info(_('Could not find window automatically'))
+        result, _bbox = await get_window_and_bbox(False)
     if result is not None:
         result = get_root_window(result)
     return result
@@ -211,7 +210,7 @@ class VideoWriter:
         self.size = even_size(size)
         self.file_path = expand_path(file_path).with_suffix(f'.{container}')
         if log:
-            logging.info(f'Writing to video: {self.file_path} ({codec})')
+            logging.info(_('Writing to video:') + f' {self.file_path} ({codec})')
         self.writer = cv2.VideoWriter(str(self.file_path), cv2.VideoWriter.fourcc(*codec), fps, self.size)
 
     def __enter__(self):
@@ -266,7 +265,7 @@ class VideoSequenceWriter:
         self.folder = expand_path(frames_path)
         self.frames_auto_split_count = frames_auto_split_count
         self.frames_count = 0
-        logging.info(f'Writing to frames folder: {self.folder}; container: {container}; codec: {codec}')
+        logging.info(_('Writing to frames folder:') + f' {self.folder}; container: {container}; codec: {codec}')
         self.folder.mkdir(parents=True, exist_ok=True)
         self.writer = None
 
@@ -300,7 +299,7 @@ class VideoSequenceWriter:
 class VideoSequenceReader:
     def __init__(self, folder):
         self.folder = expand_path(folder)
-        logging.info(f'Reading from frames folder: {self.folder}')
+        logging.info(_('Reading from frames folder:') + f' {self.folder}')
         self.reader = None
         self.frame_count = 0
         self.size = (0, 0)
@@ -414,11 +413,11 @@ class InputTracker(EventTrackerBase):
             except:
                 pass
             await asyncio.sleep(0.1)
-        logging.info(f'Window lost: {self._title}')
+        logging.info(_('Window lost:') + f' {self._title}')
         self.stop_event_stream()
 
     def start(self):
-        logging.info(f'Tracking input for window: {self._title}')
+        logging.info(_('Tracking input for window:') + f' {self._title}')
         self.mouse_listener = pynput.mouse.Listener(on_click=self.on_click_callback)
         self.mouse_listener.start()
         self._wait_task = asyncio.create_task(self.track_window())
@@ -426,7 +425,7 @@ class InputTracker(EventTrackerBase):
     def stop(self):
         self.mouse_listener.stop()
         self._wait_task.cancel()
-        logging.info(f'Stopped tracking window: {self._title}')
+        logging.info(_('Stopped tracking window:') + f' {self._title}')
 
 # Track a file and when it gets saved/closed.
 class FileTracker(FileSystemEventHandler, EventTrackerBase):
@@ -442,14 +441,14 @@ class FileTracker(FileSystemEventHandler, EventTrackerBase):
             self.emit_event()
 
     def start(self):
-        logging.info(f'Tracking file: {self.target_file}')
+        logging.info(_('Tracking file:') + f' {self.target_file}')
         self.observer.schedule(self, self.target_file.parent)
         self.observer.start()
 
     def stop(self):
         self.observer.stop()
         self.observer.join()
-        logging.info(f'Stopped tracking file: {self.target_file}')
+        logging.info(_('Stopped tracking file:') + f' {self.target_file}')
 
 # Filter a sequence of frame indices achieve a specific maximum video length.
 def filter_frames(export_time_limit, frames, fps):
@@ -461,12 +460,12 @@ def filter_frames(export_time_limit, frames, fps):
             return [frames[round(i * nth)] for i in range(target_frames)]
     return frames
 
-def export(progress_iter, export_time_limit, fps, frames, container, codec, output_path='', **_):
+def export(progress_iter, export_time_limit, fps, frames, container, codec, output_path=''):
     frames = expand_path(frames)
     if output_path == '':
         output_path = frames
     if not (frames.exists() and frames.is_dir()):
-        raise Exception(f'No appropriate frame data found for {frames}')
+        raise Exception(_('No appropriate frame data found:') + f' {frames}')
     with VideoSequenceReader(frames) as reader:
         if reader.frame_count == 0:
             return
@@ -485,46 +484,18 @@ def export(progress_iter, export_time_limit, fps, frames, container, codec, outp
                 index += 1
                 writer.write(data, False)
 
-# Concatenate videos captured to a folder.
-def cli_export(config):
-    export(tqdm.tqdm, **vars(config))
-
-def select_canvas(sai_proc):
-    while True:
-        canvas_list = sai_proc.api.get_canvas_list()
-        if len(canvas_list) == 0:
-            logging.info('No open canvases detected.')
-            return None
-        logging.info('Select a canvas to record (enter nothing to cancel):')
-        for i, canvas in zip(range(len(canvas_list)), canvas_list):
-            logging.info(f'[{i + 1}] {canvas.get_name()} ({canvas.get_short_path()})')
-        res = input(f'Enter index [1-{len(canvas_list)}]:')
-        try:
-            if res == '':
-                logging.info('Selection cancelled')
-                return None
-            res = int(res)
-            canvas = canvas_list[res - 1]
-        except ValueError:
-            logging.info('Could not parse input, trying again')
-        except IndexError:
-            logging.info('Index out of range, trying again')
-        else:
-            logging.info(f'Selected canvas: {canvas.get_name()} ({canvas.get_short_path()})')
-            return canvas
-
 def is_different_image(a, b):
     return (a is None or b is None) or (a.shape != b.shape) or (np.any(a != b))
 
-async def sai_capture(sai_proc, canvas, image_size_limit, frames, container, codec, auto_split_count, **_):
+async def sai_capture(sai_proc:sai.SAI, canvas, image_size_limit, frames, container, codec, auto_split_count):
     window = await get_window_from_pid(sai_proc.get_pid())
     if window is None:
         return
     with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, InputTracker(window) as tracker:
         last_img = None
-        async for _ in tracker.get_event_stream():
+        async for _event in tracker.get_event_stream():
             if not sai_proc.api.check_if_canvas_exists(canvas):
-                logging.info('Canvas lost, stopping now')
+                logging.info(_('Canvas lost, stopping now'))
                 break
             map_level = sai_proc.api.get_map_level_for_size(canvas, image_size_limit)
             img = sai_proc.api.get_canvas_image(canvas, map_level)
@@ -536,30 +507,15 @@ async def sai_capture(sai_proc, canvas, image_size_limit, frames, container, cod
             img.thumbnail((image_size_limit, image_size_limit))
             writer.write(img)
 
-# Capture images directly from SAI.
-async def cli_sai_capture(config):
-    with sai.SAI() as sai_proc:
-        canvas = select_canvas(sai_proc)
-        if canvas is None:
-            return
-        await sai_capture(sai_proc, canvas, **vars(config))
-
-async def screen_capture(window, bbox, frames, container, codec, auto_split_count, **_):
+async def screen_capture(window, bbox, frames, container, codec, auto_split_count):
     with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, InputTracker(window, bbox) as tracker:
-        async for _ in tracker.get_event_stream():
+        async for _event in tracker.get_event_stream():
             img = grab(sct, window.rect if bbox is None else bbox)
             writer.write(img)
 
-# Capture a window's rectangular subregion or subwindow.
-async def cli_screen_capture(config):
-    window, bbox = await get_window_and_bbox(config.drag_grab)
-    if window is None:
-        return
-    await screen_capture(window, bbox, **vars(config))
-
-async def psd_capture(psd_file, image_size_limit, frames, container, codec, auto_split_count, **_):
+async def psd_capture(psd_file, image_size_limit, frames, container, codec, auto_split_count):
     with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, FileTracker(psd_file) as tracker:
-        async for _ in tracker.get_event_stream():
+        async for _event in tracker.get_event_stream():
             while True:
                 try:
                     img = PSDImage.open(psd_file).composite()
@@ -570,33 +526,3 @@ async def psd_capture(psd_file, image_size_limit, frames, container, codec, auto
                     break
             img.thumbnail((image_size_limit, image_size_limit))
             writer.write(img)
-
-# Capture images from a PSD file after it is written to disk.
-async def cli_psd_capture(config):
-    await psd_capture(**vars(config))
-
-async def main(config):
-    if config.web:
-        config.container = 'mp4'
-        config.codec = 'avc1'
-    no_frames = config.frames is None
-    if no_frames:
-        if config.psd_file is not None:
-            config.frames = Path(config.psd_file).with_suffix('')
-            no_frames = False
-        else:
-            config.frames = Path(f'{time.time_ns()}')
-    config.frames = Path(config.frames)
-    logging.info('Press Ctrl+C here to stop at any time')
-    if config.export:
-        if no_frames:
-            logging.info('--frames or --psd-file must be specified for export')
-        else:
-            cli_export(config)
-    elif config.sai:
-        await cli_sai_capture(config)
-    elif config.psd_file is not None:
-        config.psd_file = Path(config.psd_file)
-        await cli_psd_capture(config)
-    else:
-        await cli_screen_capture(config)

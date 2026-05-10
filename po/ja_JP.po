@@ -1,0 +1,521 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+# , fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-09 17:43-0400\n"
+"PO-Revision-Date: 2026-05-09 23:11-0400\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.9\n"
+"X-Poedit-Basepath: ../../../..\n"
+"X-Poedit-SearchPath-0: .\n"
+
+#: art_timelapse/gui.py:238
+msgid "Select"
+msgstr "選択"
+
+#: art_timelapse/gui.py:238 art_timelapse/gui.py:513
+msgid "Any"
+msgstr "どれでも"
+
+#: art_timelapse/gui.py:326
+msgid "mp4/avc1 - Works with most websites, including Twitter"
+msgstr "mp4/avc1 - Twitterを含むほとんどのWebサイトで動作します"
+
+#: art_timelapse/gui.py:327
+msgid "webm/vp80 - Better color quality, but larger file size"
+msgstr "webm/vp80 - 色品質は向上しますが、ファイル サイズは大きくなります"
+
+#: art_timelapse/gui.py:328
+msgid "Use custom container/codec"
+msgstr "カスタムコンテナ/コーデックを使用する"
+
+#: art_timelapse/gui.py:334
+msgid "Video type"
+msgstr "ビデオの種類"
+
+#: art_timelapse/gui.py:335
+msgid "Useful container/codec presets."
+msgstr "便利なコンテナ/コーデックのプリセット。"
+
+#: art_timelapse/gui.py:336
+msgid "Custom container"
+msgstr "カスタムコンテナ"
+
+#: art_timelapse/gui.py:337
+msgid ""
+"If you want to use a container that is not listed above, whatever is "
+"supported by OpenCV and FFMPEG."
+msgstr ""
+"上記にリストされていないコンテナを使用する場合は、OpenCVおよびFFMPEGでサポー"
+"トされているコンテナを使用します。"
+
+#: art_timelapse/gui.py:338
+msgid "Custom codec"
+msgstr "カスタムコーデック"
+
+#: art_timelapse/gui.py:339
+msgid ""
+"If you want to use a codec that is not listed above, whatever is supported "
+"by OpenCV and FFMPEG."
+msgstr ""
+"上記にリストされていないコーデックを使用する場合は、OpenCVおよびFFMPEGでサ"
+"ポートされているコーデックを使用します。"
+
+#: art_timelapse/gui.py:353
+msgid "Status"
+msgstr "状態"
+
+#: art_timelapse/gui.py:377
+msgid "Frames path"
+msgstr "フレームパス"
+
+#: art_timelapse/gui.py:378
+msgid "Folder where video recording cuts are saved."
+msgstr "ビデオ録画のカットが保存されるフォルダー。"
+
+#: art_timelapse/gui.py:381
+msgid "Auto split count"
+msgstr "自動分割回数"
+
+#: art_timelapse/gui.py:382
+msgid ""
+"Automatically split video output after this many frames. Enter 0 or leave "
+"blank to disable. This is useful to mitigate the chance of missing or "
+"corrupt video data after a system crash."
+msgstr ""
+"この数のフレームの後にビデオ出力を自動的に分割します。無効にするには、0を入力"
+"するか、空白のままにします。これは、システムクラッシュ後にビデオデータが欠落"
+"したり破損したりする可能性を軽減するのに役立ちます。"
+
+#: art_timelapse/gui.py:385
+msgid "Image size limit (px)"
+msgstr "画像サイズ制限(px)"
+
+#: art_timelapse/gui.py:386
+msgid "Captured images will be resized to this if larger than this value."
+msgstr ""
+"この値より大きい場合、キャプチャされた画像はこの値にサイズ変更されます。"
+
+#: art_timelapse/gui.py:465
+msgid "Start Recording"
+msgstr "録画を開始"
+
+#: art_timelapse/gui.py:466
+msgid "Export"
+msgstr "書き出す"
+
+#: art_timelapse/gui.py:484
+msgid "Click window grab and start recording"
+msgstr "ウィンドウグラブをクリックして録画を開始します"
+
+#: art_timelapse/gui.py:485
+msgid "Drag area grab and start recording"
+msgstr "ドラッグして領域を取得し、録画を開始します"
+
+#: art_timelapse/gui.py:500
+msgid "SAI Recording"
+msgstr "SAI録画"
+
+#: art_timelapse/gui.py:503
+msgid "SAI version detected"
+msgstr "検出されたSAIバージョン"
+
+#: art_timelapse/gui.py:504
+msgid "SAI version override"
+msgstr "SAIバージョンの上書き"
+
+#: art_timelapse/gui.py:505
+msgid "Canvas"
+msgstr "キャンバス"
+
+#: art_timelapse/gui.py:506
+msgid "Canvas preview"
+msgstr "キャンバスのプレビュー"
+
+#: art_timelapse/gui.py:510
+msgid "PSD Recording"
+msgstr "PSD録画"
+
+#: art_timelapse/gui.py:513
+msgid "PSD file"
+msgstr "PSDファイル"
+
+#: art_timelapse/gui.py:517
+msgid "Screen Recording"
+msgstr "画面録画"
+
+#: art_timelapse/gui.py:525
+msgid "Export Video"
+msgstr "ビデオのエクスポート"
+
+#: art_timelapse/gui.py:527
+msgid "Export file"
+msgstr "エクスポートファイル"
+
+#: art_timelapse/gui.py:528
+msgid "Export time limit"
+msgstr "エクスポート期限"
+
+#: art_timelapse/gui.py:529
+msgid "Export FPS"
+msgstr "FPSのエクスポート"
+
+#: art_timelapse/gui.py:530
+msgid "Use recording video type"
+msgstr "録画ビデオタイプを使用する"
+
+#: art_timelapse/gui.py:540
+msgid "Theme:"
+msgstr "テーマ："
+
+#: art_timelapse/gui.py:568
+msgid ""
+"If the running SAI version cannot be detected, the selected override will be "
+"used."
+msgstr ""
+"実行中のSAIバージョンが検出できない場合は、選択したオーバーライドが使用されま"
+"す。"
+
+#: art_timelapse/gui.py:569
+msgid "Select which open SAI canvas to record from."
+msgstr "どの開いているSAIキャンバスから記録するかを選択します。"
+
+#: art_timelapse/gui.py:570
+msgid "PSD/PSB file to record from as it is saved to disk."
+msgstr "ディスクに保存されるときに記録するPSD/PSBファイル。"
+
+#: art_timelapse/gui.py:571
+msgid ""
+"Captures the subwindow that was clicked on. Automatically adjusts capture "
+"size to the subwindow."
+msgstr ""
+"クリックされたサブウィンドウをキャプチャします。サブウィンドウに合わせてキャ"
+"プチャ サイズを自動的に調整します。"
+
+#: art_timelapse/gui.py:572
+msgid ""
+"Captures a fixed area of the subwindow. Drag a rectangle like a screenshot "
+"tool."
+msgstr ""
+"サブウィンドウの固定領域をキャプチャします。スクリーンショット ツールのように"
+"四角形をドラッグします。"
+
+#: art_timelapse/gui.py:573
+msgid ""
+"Path to the video file to export to. Extension is determined by video type. "
+"Leave blank to automatically use the frames path."
+msgstr ""
+"エクスポート先のビデオ ファイルへのパス。拡張子はビデオの種類によって決まりま"
+"す。フレーム パスを自動的に使用するには、空白のままにします。"
+
+#: art_timelapse/gui.py:574
+msgid ""
+"Maximum time the exported video should be. Enter 0 or leave blank for no "
+"time limit."
+msgstr ""
+"エクスポートされるビデオの最大時間。時間制限を設けない場合は、0を入力するか、"
+"空白のままにします。"
+
+#: art_timelapse/gui.py:575
+msgid ""
+"Set the FPS of the exported video. 30 is a common default. Lower FPS is "
+"better for PSD recording exports (like 5 FPS)."
+msgstr ""
+"エクスポートされたビデオのFPSを設定します。30が一般的なデフォルトです。PSD録"
+"画のエクスポートには、FPSが低いほど適しています(5 FPSなど)。"
+
+#: art_timelapse/gui.py:576
+msgid ""
+"Use the same video options as the recording tabs and ignore the below "
+"settings."
+msgstr ""
+"録画タブと同じビデオ オプションを使用し、以下の設定は無視してください。"
+
+#: art_timelapse/gui.py:627
+msgid ""
+"Possible Wayland session is running because the following environment "
+"variable was set:"
+msgstr ""
+"次の環境変数が設定されているため、Wayland セッションが実行されている可能性が"
+"あります："
+
+#: art_timelapse/gui.py:629
+msgid ""
+"Wayland sessions are currently not supported by dependencies mss and "
+"pywinctl."
+msgstr ""
+"Waylandセッションは現在、依存関係mssおよびpywinctlではサポートされていませ"
+"ん。"
+
+#: art_timelapse/gui.py:630
+msgid ""
+"To work around this, you can run this tool and your desired art program "
+"inside of Xwayland, see README.md."
+msgstr ""
+"この問題を回避するには、このツールと目的のアートプログラムをXwayland内で実行"
+"できます。README.mdを参照してください。"
+
+#: art_timelapse/gui.py:632
+msgid "Supported SAI versions:"
+msgstr "対応SAIバージョン："
+
+#: art_timelapse/gui.py:707
+msgid "SAI is not running"
+msgstr "SAIが起動していない"
+
+#: art_timelapse/gui.py:720
+msgid "(Override)"
+msgstr "（オーバーライド）"
+
+#: art_timelapse/gui.py:740
+msgid "Recording started"
+msgstr "録音開始"
+
+#: art_timelapse/gui.py:741
+msgid "Recording stopped"
+msgstr "録音停止"
+
+#: art_timelapse/gui.py:742
+msgid "Stop Recording"
+msgstr "録音を停止する"
+
+#: art_timelapse/gui.py:744
+msgid "Exporting started"
+msgstr "エクスポートを開始しました"
+
+#: art_timelapse/gui.py:745
+msgid "Exporting stopped"
+msgstr "エクスポートが停止されました"
+
+#: art_timelapse/gui.py:746
+msgid "Stop Exporting"
+msgstr "エクスポートの停止"
+
+#: art_timelapse/gui.py:770
+msgid "No valid SAI process found"
+msgstr "有効なSAIプロセスが見つかりません"
+
+#: art_timelapse/gui.py:775
+msgid "There are no canvases open"
+msgstr "開いているキャンバスがありません"
+
+#: art_timelapse/gui.py:814
+msgid "Export cancelled"
+msgstr "エクスポートがキャンセルされました"
+
+#: art_timelapse/sai.py:343
+msgid "No SAI process detected."
+msgstr "SAIプロセスが検出されませんでした。"
+
+#: art_timelapse/timelapse.py:104
+msgid ""
+"Click and drag on a subwindow to start tracking an area. Right click to "
+"cancel."
+msgstr ""
+"サブウィンドウをクリックしてドラッグし、エリアの追跡を開始します。右クリック"
+"してキャンセルします。"
+
+#: art_timelapse/timelapse.py:110
+msgid "Click on a subwindow to start tracking. Right click to cancel."
+msgstr ""
+"サブウィンドウをクリックして追跡を開始します。右クリックしてキャンセルしま"
+"す。"
+
+#: art_timelapse/timelapse.py:151
+msgid "Window grab cancelled"
+msgstr "ウィンドウのグラブがキャンセルされました"
+
+#: art_timelapse/timelapse.py:201
+msgid "Could not find window automatically"
+msgstr "ウィンドウを自動的に見つけることができませんでした"
+
+#: art_timelapse/timelapse.py:213
+msgid "Writing to video:"
+msgstr "ビデオへの書き込み："
+
+#: art_timelapse/timelapse.py:268
+msgid "Writing to frames folder:"
+msgstr "フレームフォルダーへの書き込み："
+
+#: art_timelapse/timelapse.py:302
+msgid "Reading from frames folder:"
+msgstr "フレームフォルダーからの読み取り："
+
+#: art_timelapse/timelapse.py:416
+msgid "Window lost:"
+msgstr "ウィンドウが失われました："
+
+#: art_timelapse/timelapse.py:420
+msgid "Tracking input for window:"
+msgstr "ウィンドウの入力の追跡："
+
+#: art_timelapse/timelapse.py:428
+msgid "Stopped tracking window:"
+msgstr "停止した追跡ウィンドウ："
+
+#: art_timelapse/timelapse.py:444
+msgid "Tracking file:"
+msgstr "追跡ファイル："
+
+#: art_timelapse/timelapse.py:451
+msgid "Stopped tracking file:"
+msgstr "追跡を停止したファイル："
+
+#: art_timelapse/timelapse.py:468
+msgid "No appropriate frame data found:"
+msgstr "適切なフレーム データが見つかりません："
+
+#: art_timelapse/timelapse.py:498
+msgid "Canvas lost, stopping now"
+msgstr "キャンバスが失われました。現在停止中です"
+
+#~ msgid "Run as a CLI app instead of a GUI app."
+#~ msgstr "GUI アプリではなく CLI アプリとして実行します。"
+
+#~ msgid "Name of the file or directory to store frames or videos."
+#~ msgstr "フレームまたはビデオを保存するファイルまたはディレクトリの名前。"
+
+#~ msgid ""
+#~ "Automatically create a new video split after this amount of frames, or 0 "
+#~ "to disable. Default 0. Useful to mitigate the chance of unwritten or "
+#~ "corrupt video data in the event of a system crash."
+#~ msgstr ""
+#~ "このフレーム数の後に新しいビデオ分割を自動的に作成します。無効にする場合"
+#~ "は 0 を指定します。デフォルトは 0。システムクラッシュが発生した場合に、ビ"
+#~ "デオデータが書き込まれていない、または破損している可能性を軽減するのに役立"
+#~ "ちます。"
+
+#~ msgid ""
+#~ "Read SAI's memory directly to capture frames. Prompts for canvas "
+#~ "selection."
+#~ msgstr ""
+#~ "SAI のメモリを直接読み取り、フレームをキャプチャします。キャンバスの選択を"
+#~ "求めるプロンプトが表示されます。"
+
+#~ msgid ""
+#~ "Instead of screen recording, record the specified PSD file every time it "
+#~ "is written to."
+#~ msgstr ""
+#~ "画面録画の代わりに、指定した PSD ファイルが書き込まれるたびに録画します。"
+
+#~ msgid "Limit the resolution from a PSD or SAI capture."
+#~ msgstr "PSD または SAI キャプチャの解像度を制限します。"
+
+#~ msgid ""
+#~ "Export the given frame data file to an MP4, or concatenate a video "
+#~ "directory. Figures out what to do based on the frames path."
+#~ msgstr ""
+#~ "指定されたフレーム データ ファイルを MP4 にエクスポートするか、ビデオ ディ"
+#~ "レクトリを連結します。フレームのパスに基づいて何をすべきかを判断します。"
+
+#~ msgid ""
+#~ "Compress the play time of the exported MP4 file to be no longer than the "
+#~ "given seconds. Default is 60 seconds. Set to 0 for uncompressed play time."
+#~ msgstr ""
+#~ "エクスポートされた MP4 ファイルの再生時間が指定された秒数を超えないよう圧"
+#~ "縮します。デフォルトは 60 秒です。非圧縮再生時間の場合は 0 に設定します。"
+
+#~ msgid ""
+#~ "Sets the FPS of the export video. Default 30. Lower FPS is better for PSD "
+#~ "recorded exports (like 5 FPS)."
+#~ msgstr ""
+#~ "エクスポートビデオのFPSを設定します。デフォルトは 30。PSD で記録されたエク"
+#~ "スポートには、FPS が低い方が適しています (5 FPS など)。"
+
+#~ msgid ""
+#~ "Drag a rectangle over a window to capture that area. Useful for when a "
+#~ "subwindow cannot be captured by click."
+#~ msgstr ""
+#~ "ウィンドウ上で長方形をドラッグして、その領域をキャプチャします。サブウィン"
+#~ "ドウをクリックしてもキャプチャできない場合に便利です。"
+
+#~ msgid ""
+#~ "The format to store video in, for example \"webm\", \"mp4\", \"avi\". "
+#~ "Default for storage is webm with VP8 codec for better color quality, but "
+#~ "it takes up more space than mp4 with avc1."
+#~ msgstr ""
+#~ "ビデオを保存する形式 (「webm」、「mp4」、「avi」など)。ストレージのデフォ"
+#~ "ルトは、色品質を向上させるために VP8 コーデックを使用した webm ですが、"
+#~ "avc1 を使用した mp4 よりも多くのスペースを消費します。"
+
+#~ msgid ""
+#~ "The fourcc for the video container's codec. Default for storage is VP8 "
+#~ "(vp80)."
+#~ msgstr ""
+#~ "動画コンテナのコー​​デックのfourcc。ストレージのデフォルトは VP8 (vp80) で"
+#~ "す。"
+
+#~ msgid ""
+#~ "Sets the video container and codec to \"mp4\" and \"avc1\" respectively, "
+#~ "which is what Twitter and many other websites expect for video uploads. "
+#~ "Use this with --export."
+#~ msgstr ""
+#~ "ビデオ コンテナとコーデックをそれぞれ「mp4」と「avc1」に設定します。これ"
+#~ "は、Twitter や他の多くの Web サイトがビデオのアップロードに期待しているも"
+#~ "のです。これを --export と一緒に使用します。"
+
+#~ msgid "SAI version may not be compatible:"
+#~ msgstr "SAI のバージョンには互換性がない可能性があります："
+
+#~ msgid "  Compatible versions:"
+#~ msgstr "互換性のあるバージョン："
+
+#~ msgid "    Exe hash:"
+#~ msgstr "実行ハッシュ："
+
+#~ msgid "  Found exe hash:"
+#~ msgstr "見つかったexeハッシュ："
+
+#~ msgid "Select a version override (Ctrl+C to cancel)."
+#~ msgstr "バージョンの上書きを選択します (キャンセルするには Ctrl+C)。"
+
+#~ msgid "Enter nothing to pick the latest version:"
+#~ msgstr "何も入力せずに最新バージョンを選択します："
+
+#~ msgid "Enter index"
+#~ msgstr "インデックスを入力してください"
+
+#~ msgid "Could not parse input, trying again"
+#~ msgstr "入力を解析できませんでした。再試行してください"
+
+#~ msgid "Index out of range, trying again"
+#~ msgstr "インデックスが範囲外です。再試行してください"
+
+#~ msgid "Selected version:"
+#~ msgstr "選択したバージョン："
+
+#~ msgid "Warning: Capture may not work correctly if version does not match."
+#~ msgstr ""
+#~ "警告： バージョンが一致しない場合、キャプチャが正しく動作しない可能性があ"
+#~ "ります。"
+
+#~ msgid "No open canvases detected."
+#~ msgstr "開いているキャンバスが検出されませんでした。"
+
+#~ msgid "Select a canvas to record (enter nothing to cancel):"
+#~ msgstr ""
+#~ "記録するキャンバスを選択します (キャンセルする場合は何も入力しません)："
+
+#~ msgid "Selection cancelled"
+#~ msgstr "選択がキャンセルされました"
+
+#~ msgid "Selected canvas:"
+#~ msgstr "選択したキャンバス："
+
+#~ msgid "Press Ctrl+C here to stop at any time"
+#~ msgstr "ここで Ctrl+C を押すと、いつでも停止できます"
+
+#~ msgid "--frames or --psd-file must be specified for export"
+#~ msgstr ""
+#~ "エクスポートには --frames または --psd-file を指定する必要があります"

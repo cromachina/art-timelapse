@@ -16,7 +16,12 @@ from tkinter import filedialog
 from PIL import Image, ImageTk
 import cv2
 
-from . import asynctk, timelapse, sai
+from . import asynctk, timelapse, sai, set_locale, _ as tr
+
+def _(t):
+    return t
+
+translatables = []
 
 def get_fixed_font(font_name='Consolas', font_size=10):
     if font_name in tk.font.families():
@@ -57,18 +62,52 @@ class DefaultIntVar(ttk.IntVar):
         except:
             return 0
 
-class StackStringVar(ttk.StringVar):
-    def __init__(self, *args, **kwargs):
-        self.stack = []
+class LocalizedStringVar(ttk.StringVar):
+    def __init__(self, text, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        translatables.append(self)
+        self.set(text)
+
+    def set(self, text):
+        self.init_text = text
+        self.update_translation()
+
+    def update_translation(self):
+        super().set(tr(self.init_text))
+
+class StackStringVar(ttk.StringVar):
+    def __init__(self, value, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stack = []
+        self.cbname = None
+        self.linked_var = None
+        self.push(value)
+
+    def unset_value(self):
+        if self.linked_var is not None:
+            self.linked_var.trace_remove('write', self.cbname)
+            self.linked_var = None
+            self.cbname = None
+
+    def set_value(self, value):
+        self.unset_value()
+        if isinstance(value, ttk.StringVar):
+            self.cbname = value.trace_add('write', lambda *_: self.set(value.get()))
+            self.linked_var = value
+            self.set(value.get())
+        else:
+            self.set(value)
 
     def push(self, value):
-        self.stack.append(self.get())
-        self.set(value)
+        self.set_value(value)
+        self.stack.append(value)
 
     def pop(self):
         value = self.stack.pop()
-        self.set(value)
+        if self.stack:
+            self.set_value(self.stack[-1])
+        else:
+            self.set_value('')
 
 class ButtonRow(ttk.Frame):
     def __init__(self, master, text=None, textvariable=None):
@@ -126,21 +165,21 @@ class ProgressRow(ttk.Frame):
         self.progressbar.config(value=value)
 
 class LabelRow(ttk.Frame):
-    def __init__(self, master, text):
+    def __init__(self, master, label):
         super().__init__(master)
         self.pack(fill=ttkc.X)
-        self.label = ttk.Label(self, text=text)
+        self.label = ttk.Label(self, text=label, textvariable=LocalizedStringVar(label))
         self.label.pack(side=ttkc.LEFT)
 
 class StatusLabelRow(LabelRow):
     def __init__(self, master, label_text, status_text='', textvariable=None):
         super().__init__(master, label_text)
-        self.status = ttk.Label(self, text=status_text, textvariable=textvariable)
-        self.status.pack(side=ttkc.LEFT)
+        self.status = ttk.Entry(self, text=status_text, textvariable=textvariable, state=ttkc.READONLY)
+        self.status.pack(side=ttkc.LEFT, fill=ttkc.X, expand=True)
 
 class ImageLabelRow(LabelRow):
-    def __init__(self, master, text):
-        super().__init__(master, text)
+    def __init__(self, master, label):
+        super().__init__(master, label)
         self.canvas = ttk.Canvas(self, height=100, width=100)
         self.canvas.pack(side=ttkc.LEFT)
         self.image_tag = None
@@ -157,8 +196,8 @@ class ImageLabelRow(LabelRow):
             self.image_tag = None
 
 class CheckbuttonLabelRow(LabelRow):
-    def __init__(self, master, text, variable=None):
-        super().__init__(master, text)
+    def __init__(self, master, label, variable=None):
+        super().__init__(master, label)
         self.checkbutton = ttk.Checkbutton(self, variable=variable)
         self.checkbutton.pack(side=ttkc.LEFT)
 
@@ -166,8 +205,8 @@ def check_digit(p):
     return str(p).isdigit() or str(p) == ''
 
 class EntryLabelRow(LabelRow):
-    def __init__(self, master, text, numbers=False, button_text=None, textvariable=None):
-        super().__init__(master, text)
+    def __init__(self, master, label, numbers=False, button_label=None, textvariable=None):
+        super().__init__(master, label)
         self.textvariable = textvariable or ttk.StringVar()
         kwargs = {}
         if numbers:
@@ -178,8 +217,8 @@ class EntryLabelRow(LabelRow):
         self.entry = ttk.Entry(self, **kwargs)
         self.entry.pack(side=ttkc.LEFT, fill=ttkc.X, expand=True)
         self.button = None
-        if button_text is not None:
-            self.button = ttk.Button(self, text=button_text)
+        if button_label is not None:
+            self.button = ttk.Button(self, text=button_label, width=10, textvariable=LocalizedStringVar(button_label))
             self.button.pack(side=ttkc.LEFT)
 
     def enable(self, state):
@@ -195,8 +234,8 @@ def get_nearest_dir(path):
     return Path('.')
 
 class FilePickerEntry(EntryLabelRow):
-    def __init__(self, master, text, title='Select', mode='open', filetypes=(('Any', '*.*'),), button_text='Select', **kwargs):
-        super().__init__(master, text, button_text=button_text, **kwargs)
+    def __init__(self, master, text, title=_('Select'), mode='open', filetypes=((_('Any'), '*.*'),), button_label=_('Select'), **kwargs):
+        super().__init__(master, text, button_label=button_label, **kwargs)
         self.title = title
         self.mode = mode
         self.filetypes = filetypes
@@ -204,27 +243,30 @@ class FilePickerEntry(EntryLabelRow):
 
     def pick_file(self, *_args):
         initdir = get_nearest_dir(self.textvariable.get())
+        title = tr(self.title)
+        filetypes = [tuple((tr(x) for x in ftype)) for ftype in self.filetypes]
+        filename = None
         match self.mode:
             case 'open':
                 filename = filedialog.askopenfilename(
-                    title=self.title,
+                    title=title,
                     initialdir=initdir,
-                    filetypes=self.filetypes,
+                    filetypes=filetypes,
                 )
             case 'save':
                 filename = filedialog.asksaveasfilename(
-                    title=self.title,
+                    title=title,
                     initialdir=initdir,
-                    filetypes=self.filetypes,
+                    filetypes=filetypes,
                 )
             case 'dir':
                 filename = filedialog.askdirectory(
-                    title=self.title,
+                    title=title,
                     initialdir=initdir,
                 )
             case _:
                 return
-        if filename is not None:
+        if filename is not None and filename:
             self.textvariable.set(filename)
 
 class ComboboxLabelRow(LabelRow):
@@ -262,7 +304,7 @@ class ComboboxLabelRow(LabelRow):
         return self.combobox.current()
 
     def set_values(self, values):
-        self.combobox.config(values=values)
+        self.combobox.config(values=[value.get() if isinstance(value, ttk.StringVar) else value for value in values])
         self.values = values
         try:
             if isinstance(self.index_var, ttk.StringVar):
@@ -278,25 +320,36 @@ class ComboboxLabelRow(LabelRow):
     def get_values(self):
         return self.values
 
+class ToolTip(tooltip.ToolTip):
+    def __init__(self, widget, text, *args, **kwargs):
+        super().__init__(widget, text, *args, **kwargs)
+        self.textvariable = LocalizedStringVar(text)
+        self.textvariable.trace_add('write', self.update_text)
+        self.update_text()
+
+    def update_text(self, *_args):
+        self.text = self.textvariable.get()
+
 class VideoConfigFrame(ttk.Frame):
     def __init__(self, master, shared_vars):
+        translatables.append(self)
         super().__init__(master)
         self.pack(fill=ttkc.X)
         self.video_types = [
-            ('mp4/avc1 - Works with most websites, including Twitter', ('mp4', 'avc1')),
-            ('webm/vp80 - Better color quality, but larger file size', ('webm', 'vp80')),
-            ('Use custom container/codec', None)
+            (_('mp4/avc1 - Works with most websites, including Twitter'), ('mp4', 'avc1')),
+            (_('webm/vp80 - Better color quality, but larger file size'), ('webm', 'vp80')),
+            (_('Use custom container/codec'), None)
         ]
         self.video_type_var = shared_vars['video_type_var']
         self.custom_container_var = shared_vars['custom_container_var']
         self.custom_codec_var = shared_vars['custom_codec_var']
         self.button_text = shared_vars['button_text']
-        self.video_type_box = ComboboxLabelRow(self, 'Video type', values=[t[0] for t in self.video_types], index_variable=self.video_type_var)
-        tooltip.ToolTip(self.video_type_box, 'Useful container/codec presets.')
-        self.custom_container_entry = EntryLabelRow(self, 'Custom container', textvariable=self.custom_container_var)
-        tooltip.ToolTip(self.custom_container_entry, 'If you want to use a container that is not listed above, whatever is supported by OpenCV and FFMPEG.')
-        self.custom_codec_entry = EntryLabelRow(self, 'Custom codec', textvariable=self.custom_codec_var)
-        tooltip.ToolTip(self.custom_codec_entry, 'If you want to use a codec that is not listed above, whatever is supported by OpenCV and FFMPEG.')
+        self.video_type_box = ComboboxLabelRow(self, _('Video type'), values=[t[0] for t in self.video_types], index_variable=self.video_type_var)
+        ToolTip(self.video_type_box, _('Useful container/codec presets.'))
+        self.custom_container_entry = EntryLabelRow(self, _('Custom container'), textvariable=self.custom_container_var)
+        ToolTip(self.custom_container_entry, _('If you want to use a container that is not listed above, whatever is supported by OpenCV and FFMPEG.'))
+        self.custom_codec_entry = EntryLabelRow(self, _('Custom codec'), textvariable=self.custom_codec_var)
+        ToolTip(self.custom_codec_entry, _('If you want to use a codec that is not listed above, whatever is supported by OpenCV and FFMPEG.'))
         self.button = ButtonRow(self, textvariable=self.button_text)
 
     def get_format(self):
@@ -308,9 +361,13 @@ class VideoConfigFrame(ttk.Frame):
     def set_button_callback(self, callback):
         self.button.set_callback(callback)
 
+    def update_translation(self):
+        values = [tr(vtype[0]) for vtype in self.video_types]
+        self.video_type_box.set_values(values)
+
 class StatusArea(ttk.Labelframe):
     def __init__(self, master, font=None):
-        super().__init__(master, text='Status')
+        super().__init__(master, text=_('Status'))
         self.pack(fill=ttkc.BOTH, expand=True)
         self.text = scrolled.ScrolledText(self, font=font, width=1, height=1)
         self.text.text.config(state=ttkc.DISABLED)
@@ -334,22 +391,26 @@ class AsyncWidgetLogger(logging.Handler):
         self.loop.call_soon_threadsafe(self.widget.append, self.format(record))
 
 def make_frames_path_field(master, textvariable=None):
-    frames_path = FilePickerEntry(master, 'Frames path', mode='dir', textvariable=textvariable)
-    tooltip.ToolTip(frames_path, 'Folder where video recording cuts are saved.')
+    frames_path = FilePickerEntry(master, _('Frames path'), mode='dir', textvariable=textvariable)
+    ToolTip(frames_path, _('Folder where video recording cuts are saved.'))
 
 def make_auto_split_field(master, textvariable=None):
-    auto_split = EntryLabelRow(master, 'Auto split count', numbers=True, textvariable=textvariable)
-    tooltip.ToolTip(auto_split, 'Automatically split video output after this many frames. Enter 0 or leave blank to disable. This is useful to mitigate the chance of missing or corrupt video data after a system crash.')
+    auto_split = EntryLabelRow(master, _('Auto split count'), numbers=True, textvariable=textvariable)
+    ToolTip(auto_split, _('Automatically split video output after this many frames. Enter 0 or leave blank to disable. This is useful to mitigate the chance of missing or corrupt video data after a system crash.'))
 
 def make_image_size_limit_box(master, textvariable=None):
-    frame = EntryLabelRow(master, 'Image size limit (px)', numbers=True, textvariable=textvariable)
-    tooltip.ToolTip(frame, 'Captured images will be resized to this if larger than this value.')
+    frame = EntryLabelRow(master, _('Image size limit (px)'), numbers=True, textvariable=textvariable)
+    ToolTip(frame, _('Captured images will be resized to this if larger than this value.'))
     return frame
 
-def make_notebook_frame(notebook, text):
+def make_notebook_frame(notebook:ttk.Notebook, text:str):
     frame = ttk.Frame(notebook)
     frame.pack(fill=ttkc.BOTH, expand=True)
     notebook.add(frame, text=text)
+    var = LocalizedStringVar(text)
+    tab_id = notebook.index('end') - 1
+    var.trace_add('write', lambda *_args: notebook.tab(tab_id, text=var.get()))
+    frame._tab_name_var = var
     return frame
 
 def get_widgets_by_type(master, wtype):
@@ -358,13 +419,18 @@ def get_widgets_by_type(master, wtype):
             yield widget
         yield from get_widgets_by_type(widget, wtype)
 
+def get_text_width(label):
+    return tk.font.Font(font=label['font']).measure(label['text'])
+
 def auto_size_label_rows(master):
     label_rows = list(get_widgets_by_type(master, LabelRow))
     max_width = 0
     for row in label_rows:
-        max_width = max(max_width, len(row.label['text']) - 4)
+        row.label.config(width=0)
+        max_width = max(max_width, row.label.winfo_reqwidth())
     for row in label_rows:
-        row.label.config(width=max_width, anchor='e')
+        row.label.pack(side=ttkc.LEFT, ipadx=max_width/2, ipady=6, padx=5, fill=ttkc.X)
+        row.label.config(width=1)
 
 class Settings:
     var_types = {
@@ -418,8 +484,8 @@ class App(asynctk.AsyncTk):
         self.auto_split_sai_var = self.settings.get_var('auto_split_sai', 500)
         self.auto_split_psd_var = self.settings.get_var('auto_split_psd', 10)
         self.auto_split_screen_var = self.settings.get_var('auto_split_screen', 500)
-        self.recording_button_text_var = StackStringVar(value='Start Recording')
-        self.export_button_text_var = StackStringVar(value='Export')
+        self.recording_button_text_var = StackStringVar(value=LocalizedStringVar(_('Start Recording')))
+        self.export_button_text_var = StackStringVar(value=LocalizedStringVar(_('Export')))
         recording_vars = {
             'video_type_var': self.settings.get_var('recording_type', 0),
             'custom_container_var': self.settings.get_var('recording_custom_container', ''),
@@ -432,13 +498,13 @@ class App(asynctk.AsyncTk):
             'custom_codec_var': self.settings.get_var('export_custom_codec', ''),
             'button_text': self.export_button_text_var,
         }
-        self.sai_version_status_var = ttk.StringVar()
+        self.sai_version_status_var = LocalizedStringVar('')
         self.sai_version_override_var = self.settings.get_var('sai_version_override', 0)
         self.sai_canvas_var = self.settings.get_var('sai_canvas', '')
         self.image_size_limit_var = self.settings.get_var('image_size_limit', 1000)
         self.psd_file_var = self.settings.get_var('psd_file_var', '')
-        self.screen_click_button_var = StackStringVar(value='Click window grab and start recording')
-        self.screen_grab_button_var = StackStringVar(value='Drag area grab and start recording')
+        self.screen_click_button_var = StackStringVar(value=LocalizedStringVar(_('Click window grab and start recording')))
+        self.screen_grab_button_var = StackStringVar(value=LocalizedStringVar(_('Drag area grab and start recording')))
         self.export_file_var = self.settings.get_var('export_file_var', '')
         self.export_time_limit_var = self.settings.get_var('export_time_limit', 60)
         self.export_fps_var = self.settings.get_var('export_fps', 30)
@@ -446,33 +512,31 @@ class App(asynctk.AsyncTk):
         self.selected_tab_var = self.settings.get_var('selected_tab', 0)
         self.selected_tab_thread_safe = 0
         meta_config_theme_var = self.settings.get_var('theme', 'darkly')
+        meta_config_lang_var = self.settings.get_var('lang', 'en')
 
         #########################################################
         # GUI widgets and layout
         notebook = ttk.Notebook(self)
         notebook.pack(side=ttkc.TOP, fill=ttkc.X)
 
-        def mk_fields(master):
-            make_auto_split_field(master, self.auto_split_var)
-
-        sai_frame = make_notebook_frame(notebook, 'SAI Recording')
+        sai_frame = make_notebook_frame(notebook, _('SAI Recording'))
         make_frames_path_field(sai_frame, self.frames_file_var)
         make_auto_split_field(sai_frame, self.auto_split_sai_var)
-        StatusLabelRow(sai_frame, 'SAI version detected:', textvariable=self.sai_version_status_var)
-        self.sai_version_override_box = ComboboxLabelRow(sai_frame, 'SAI version override', values=[api.version_name for api in sai.get_sai_api_list()], index_variable=self.sai_version_override_var)
-        self.sai_canvas_box = ComboboxLabelRow(sai_frame, 'Canvas', index_variable=self.sai_canvas_var)
-        self.sai_canvas_preview = ImageLabelRow(sai_frame, 'Canvas preview')
+        StatusLabelRow(sai_frame, _('SAI version detected'), textvariable=self.sai_version_status_var)
+        self.sai_version_override_box = ComboboxLabelRow(sai_frame, _('SAI version override'), values=[api.version_name for api in sai.get_sai_api_list()], index_variable=self.sai_version_override_var)
+        self.sai_canvas_box = ComboboxLabelRow(sai_frame, _('Canvas'), index_variable=self.sai_canvas_var)
+        self.sai_canvas_preview = ImageLabelRow(sai_frame, _('Canvas preview'))
         make_image_size_limit_box(sai_frame, textvariable=self.image_size_limit_var)
         self.sai_recording_frame = VideoConfigFrame(sai_frame, recording_vars)
 
-        psd_frame = make_notebook_frame(notebook, 'PSD Recording')
+        psd_frame = make_notebook_frame(notebook, _('PSD Recording'))
         make_frames_path_field(psd_frame, self.frames_file_var)
         make_auto_split_field(psd_frame, self.auto_split_psd_var)
-        psd_file_entry = FilePickerEntry(psd_frame, 'PSD file', mode='open', filetypes=[('PSD', '.psd .psb'), ('Any', '*.*')], textvariable=self.psd_file_var)
+        psd_file_entry = FilePickerEntry(psd_frame, _('PSD file'), mode='open', filetypes=[('PSD', '.psd .psb'), (_('Any'), '*.*')], textvariable=self.psd_file_var)
         make_image_size_limit_box(psd_frame, textvariable=self.image_size_limit_var)
         self.psd_recording_frame = VideoConfigFrame(psd_frame, recording_vars)
 
-        screen_frame = make_notebook_frame(notebook, 'Screen Recording')
+        screen_frame = make_notebook_frame(notebook, _('Screen Recording'))
         make_frames_path_field(screen_frame, self.frames_file_var)
         make_auto_split_field(screen_frame, self.auto_split_screen_var)
         self.screen_recording_frame = VideoConfigFrame(screen_frame, recording_vars)
@@ -480,12 +544,12 @@ class App(asynctk.AsyncTk):
         self.screen_click_button = ButtonRow(screen_frame, textvariable=self.screen_click_button_var)
         self.screen_grab_button = ButtonRow(screen_frame, textvariable=self.screen_grab_button_var)
 
-        export_frame = make_notebook_frame(notebook, 'Export Video')
+        export_frame = make_notebook_frame(notebook, _('Export Video'))
         make_frames_path_field(export_frame, self.frames_file_var)
-        export_file_entry = FilePickerEntry(export_frame, 'Export file', mode='save', textvariable=self.export_file_var)
-        export_time_limit_entry = EntryLabelRow(export_frame, 'Export time limit', numbers=True, textvariable=self.export_time_limit_var)
-        export_fps_entry = EntryLabelRow(export_frame, 'Export FPS', numbers=True, textvariable=self.export_fps_var)
-        export_user_reocrding = CheckbuttonLabelRow(export_frame, 'Use recording video type', variable=self.export_use_recording_var)
+        export_file_entry = FilePickerEntry(export_frame, _('Export file'), mode='save', textvariable=self.export_file_var)
+        export_time_limit_entry = EntryLabelRow(export_frame, _('Export time limit'), numbers=True, textvariable=self.export_time_limit_var)
+        export_fps_entry = EntryLabelRow(export_frame, _('Export FPS'), numbers=True, textvariable=self.export_fps_var)
+        export_user_reocrding = CheckbuttonLabelRow(export_frame, _('Use recording video type'), variable=self.export_use_recording_var)
         self.export_config_frame = VideoConfigFrame(export_frame, export_vars)
         self.export_progress = ProgressRow(export_frame, font=fixed_font)
 
@@ -493,22 +557,50 @@ class App(asynctk.AsyncTk):
         logger = AsyncWidgetLogger(status_area)
         logging.getLogger().addHandler(logger)
 
+        self.stop_recording_label = LocalizedStringVar(_('Stop Recording'))
+        self.stop_exporting_label = LocalizedStringVar(_('Stop Exporting'))
+
+        ToolTip(self.sai_version_override_box, _('If the running SAI version cannot be detected, the selected override will be used.'))
+        ToolTip(self.sai_canvas_box, _('Select which open SAI canvas to record from.'))
+        ToolTip(psd_file_entry, _('PSD/PSB file to record from as it is saved to disk.'))
+        ToolTip(self.screen_click_button, _('Captures the subwindow that was clicked on. Automatically adjusts capture size to the subwindow.'))
+        ToolTip(self.screen_grab_button, _('Captures a fixed area of the subwindow. Drag a rectangle like a screenshot tool.'))
+        ToolTip(export_file_entry, _('Path to the video file to export to. Extension is determined by video type. Leave blank to automatically use the frames path.'))
+        ToolTip(export_time_limit_entry, _('Maximum time the exported video should be. Enter 0 or leave blank for no time limit.'))
+        ToolTip(export_fps_entry, _('Set the FPS of the exported video. 30 is a common default. Lower FPS is better for PSD recording exports (like 5 FPS).'))
+        ToolTip(export_user_reocrding, _('Use the same video options as the recording tabs and ignore the below settings.'))
+
         meta_config = ttk.Frame(self)
         meta_config.pack(fill=ttkc.X)
-        ttk.Label(meta_config, text='Theme:').pack(side=ttkc.LEFT)
+        theme_label = LocalizedStringVar(_('Theme:'))
+        ttk.Label(meta_config, textvariable=theme_label).pack(side=ttkc.LEFT)
         meta_config_theme_box = ttk.Combobox(meta_config, state=ttkc.READONLY)
         meta_config_theme_box.pack(side=ttkc.LEFT)
         meta_config_theme_box.config(values=ttk.Style().theme_names(), textvariable=meta_config_theme_var)
 
-        tooltip.ToolTip(self.sai_version_override_box, 'If the running SAI version cannot be detected, the selected override will be used.')
-        tooltip.ToolTip(self.sai_canvas_box, 'Select which open SAI canvas to record from.')
-        tooltip.ToolTip(psd_file_entry, 'PSD/PSB file to record from as it is saved to disk.')
-        tooltip.ToolTip(self.screen_click_button, 'Captures the subwindow that was clicked on. Automatically adjusts capture size to the subwindow.')
-        tooltip.ToolTip(self.screen_grab_button, 'Captures a fixed area of the subwindow. Drag a rectangle like a screenshot tool.')
-        tooltip.ToolTip(export_file_entry, 'Path to the video file to export to. Extension is determined by video type. Leave blank to automatically use the frames path.')
-        tooltip.ToolTip(export_time_limit_entry, 'Maximum time the exported video should be. Enter 0 or leave blank for no time limit.')
-        tooltip.ToolTip(export_fps_entry, 'Set the FPS of the exported video. 30 is a common default. Lower FPS is better for PSD recording exports (like 5 FPS).')
-        tooltip.ToolTip(export_user_reocrding, 'Use the same video options as the recording tabs and ignore the below settings.')
+        meta_config_lang_box = ttk.Combobox(meta_config, state=ttkc.READONLY)
+        meta_config_lang_box.pack(side=ttkc.RIGHT)
+        ttk.Label(meta_config, text='🌐').pack(side=ttkc.RIGHT)
+        languages_lookup = {
+            'English': 'en',
+            '日本語': 'ja',
+        }
+        languages_lookup_rev = { v:k for k,v in languages_lookup.items() }
+        lang_box_var = ttk.StringVar()
+        info_lang_printed = set()
+        def on_lang_change(*_args):
+            lang_code = languages_lookup.get(lang_box_var.get())
+            set_locale(lang_code)
+            meta_config_lang_var.set(lang_code)
+            for obj in translatables:
+                obj.update_translation()
+            auto_size_label_rows(self)
+            if lang_code not in info_lang_printed:
+                info_lang_printed.add(lang_code)
+                self.print_init_info()
+        lang_box_var.trace_add('write', on_lang_change)
+        meta_config_lang_box.config(values=list(languages_lookup.keys()), textvariable=lang_box_var)
+        meta_config_lang_box.set(languages_lookup_rev.get(meta_config_lang_var.get()))
 
         #########################################################
         # Init and callbacks
@@ -529,20 +621,6 @@ class App(asynctk.AsyncTk):
 
         meta_config_theme_var.trace_add('write', lambda *_: ttk.Style(meta_config_theme_var.get()))
         meta_config_theme_var.set(meta_config_theme_var.get())
-
-        auto_size_label_rows(self)
-
-        session_type_key = 'XDG_SESSION_TYPE'
-        session_type = os.environ.get(session_type_key, '')
-        if session_type.lower() == 'wayland':
-            logging.warning(f'Possible Wayland session is running because the following environment variable was set:')
-            logging.warning(f'  {session_type_key}={session_type}')
-            logging.warning(f'Wayland sessions are currently not supported by dependencies mss and pywinctl.')
-            logging.warning(f'To work around this, you can run this tool and your desired art program inside of Xwayland, see README.md.')
-
-        logging.info('Supported SAI versions:')
-        for api in sorted(sai.sai_api_lookup.values(), key=lambda x: x.version_name):
-            logging.info(f'  {api.version_name}')
 
         self.sai_proc = None
         self.last_pid = None
@@ -566,6 +644,19 @@ class App(asynctk.AsyncTk):
         self.operation_thread_running = False
         self.operation_task: asyncio.Task | None = None
         self.canvas_preview_task: asyncio.Task | None = None
+
+    def print_init_info(self):
+        session_type_key = 'XDG_SESSION_TYPE'
+        session_type = os.environ.get(session_type_key, '')
+        if session_type.lower() == 'wayland':
+            logging.warning(tr(_('Possible Wayland session is running because the following environment variable was set:')))
+            logging.warning(f'  {session_type_key}={session_type}')
+            logging.warning(tr(_('Wayland sessions are currently not supported by dependencies mss and pywinctl.')))
+            logging.warning(tr(_('To work around this, you can run this tool and your desired art program inside of Xwayland, see README.md.')))
+
+        logging.info(tr(_('Supported SAI versions:')))
+        for api in sorted(sai.sai_api_lookup.values(), key=lambda x: x.version_name):
+            logging.info(f'  {api.version_name}')
 
     def cleanup(self):
         self.win_size_var.set((self.winfo_width(), self.winfo_height()))
@@ -638,7 +729,7 @@ class App(asynctk.AsyncTk):
             self.clear_sai_proc()
             sai_pid = self.current_pid
             if sai_pid is None:
-                self.sai_version_status_var.set('SAI is not running')
+                self.sai_version_status_var.set(_('SAI is not running'))
             elif sai_pid != self.last_pid:
                 self.last_pid = sai_pid
                 api = sai.get_sai_api_from_pid(sai_pid)
@@ -651,7 +742,7 @@ class App(asynctk.AsyncTk):
                     version_index = self.sai_version_override_var.get()
                     api = sai.get_sai_api_list()[version_index]
                     self.sai_proc = sai.SAI(api)
-                    self.sai_version_status_var.set(f'{self.sai_proc.api.version_name} (Override)')
+                    self.sai_version_status_var.set(f'{self.sai_proc.api.version_name}' + tr(_('(Override)')))
                 self.refresh_sai_canvses()
 
     async def run_background_task(self):
@@ -671,26 +762,26 @@ class App(asynctk.AsyncTk):
             return
         async def subtask():
             if recording_mode:
-                start_log = 'Recording started'
-                stop_log = 'Recording stopped'
-                stop_text = 'Stop Recording'
+                start_log = _('Recording started')
+                stop_log = _('Recording stopped')
+                stop_text = self.stop_recording_label
             else:
-                start_log = 'Exporting started'
-                stop_log = 'Exporting stopped'
-                stop_text = 'Stop Exporting'
-            logging.info(start_log)
-            svars = [self.recording_button_text_var, self.export_button_text_var,
-                self.screen_grab_button_var, self.screen_click_button_var]
-            for var in svars:
-                var.push(stop_text)
+                start_log = _('Exporting started')
+                stop_log = _('Exporting stopped')
+                stop_text = self.stop_exporting_label
+            logging.info(tr(start_log))
             try:
+                svars = [self.recording_button_text_var, self.export_button_text_var,
+                    self.screen_grab_button_var, self.screen_click_button_var]
+                for var in svars:
+                    var.push(stop_text)
                 await task(*args, **kwargs)
             except asyncio.CancelledError:
                 pass
             except Exception as ex:
                 logging.exception(ex)
             finally:
-                logging.info(stop_log)
+                logging.info(tr(stop_log))
                 for var in svars:
                     var.pop()
                 self.operation_task = None
@@ -701,12 +792,12 @@ class App(asynctk.AsyncTk):
 
     async def record_sai(self):
         if self.sai_proc is None:
-            logging.info('No valid SAI process found')
+            logging.info(tr(_('No valid SAI process found')))
             return
         with sai.SAI(type(self.sai_proc.api)) as sai_proc:
             canvases = sai_proc.api.get_canvas_list()
             if not canvases:
-                logging.info('There are no canvases open')
+                logging.info(tr(_('There are no canvases open')))
                 return
             canvas = canvases[self.sai_canvas_box.get_index()]
             frames_path = self.frames_file_var.get()
@@ -745,7 +836,7 @@ class App(asynctk.AsyncTk):
             for it in self.export_progress.iterate(iterable, unit):
                 yield it
                 if not self.operation_thread_running:
-                    logging.info('Export cancelled')
+                    logging.info(tr(_('Export cancelled')))
                     break
         self.operation_thread_running = True
         # Export can have long CPU-bound sections, so run it on another thread.
@@ -754,5 +845,8 @@ class App(asynctk.AsyncTk):
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
         logging.exception(''.join(traceback.format_exception(exc_type, exc_value, exc_tb)))
 
-async def main():
+async def async_main():
     await App().async_main_loop()
+
+def main():
+    asyncio.run(async_main())

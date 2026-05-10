@@ -15,75 +15,6 @@ You first need to make a reference video file from which to restore header infor
 Then use a recovery tool that can use the reference video to fix the corrupt video, such as https://github.com/anthwlock/untrunc. This may also be done with FFMPEG https://www.handyrecovery.com/fix-corrupted-video-using-ffmpeg/.
 In order to mitigate the chance that a recorded video is completely unrecoverable, you can configure a setting in this tool to automatically split recorded output after some number of frames, so that smaller video files are completely written more frequently.
 
-### GUI usage
-- The default mode is to run a GUI and most options have tooltips.
-
-### Command line usage
-- Use `--cli` to run the program as a command line tool. Use `--help` to see all options.
-- Specify `--frames <folder>` recorded data to a directory. If not specified, it will use a timestamp as the file name.
-- The default video storage format is `webm` with `vp80` codec to have better color preservation (compared to `mp4`).
-  - You may see a warning that `vp80` is not supported for `webm`. This appears to be a bug in OpenCV that you can ignore.
-- You can specify a custom `--container <suffix>` and fourcc `--codec <fourcc>` when recording or exporting, whatever is supported by OpenCV and FFMPEG, for example `--container mp4 --codec mp4v`.
-  - Incompatible containers and codecs will display errors and might not produce any resulting video file.
-- If you specify `--web`, the `container` and `codec` are set to `mp4` and `avc1` respectively. This format is accepted by many websites for upload, but it can reduce color quality. This is best used when exporting (with `--export`). If you really need to save disk space, then recording with `--web` will be very efficient.
-- You can export the saved frame data with `--export`. By default the video will try to be made no longer than 60 seconds, like a typical timelapse, but you can override it with `--export-time-limit <seconds>`. Set it to 0 to have no limit on the export length.
-
-| Format | Quality | Size (relative to MP4) | Estimated size (~25k 1000px frames recorded) |
-|--|--|--|--|
-| mp4 (avc1) | Some colors will look off from the original | 1x | 15 MB |
-| webm (vp80) | Colors look more accurate | 10x | 150 MB |
-
-#### SAI memory capture
-- If using `--sai`, the program will read frames directly from the running SAI instance.
-- It will ask you which opened canvas you want to record.
-- It will try to automatically find the window of SAI to track clicks, but if it cannot find the window, you will be asked to click on SAI's window instead.
-- It will only record a new frame if it is different from the last frame, as to prevent clicks on other parts of the program from creating redundant frames.
-- This mode will not work natively on MacOS because PyMemoryEditor does not have a MacOS implementation. You might be able to run this program in Wine on MacOS to get around this.
-- I think that this mode provides the best looking timelapse for SAI.
-- This mode has to be updated for each new version of SAI, so it may not be compatible with the latest version of SAI as it's released.
-#### PSD capture
-- If using `--psd-file <filename>`, a frame will be captured every time the PSD file is finished being written to (such as after saving).
-- This mode will make a choppy looking timelapse, depending on how frequently you save your work, but the effect isn't terrible.
-#### Screen capture
-- This is the default behavior of the program when neither of the above options is specified, which is to capture an area of the screen.
-- When you run the program, it will ask you to click on the window which you want to start capturing.
-  - If using Paint Tool SAI with Windows, click inside of the drawing area to automatically capture that subwindow.
-  - If you are using Paint Tool SAI with Wine, you can use the `--drag-grab` option to drag a rectangular area to record.
-- This mode will make a timelapse that looks like a screen recording with software like OBS. Depending on how short you compress the timelapse to, this can look somewhat disorienting, particularly if you zoom or rotate a lot.
-
-### Examples
-Record from SAI's memory directly and store the outputs into a directory called `test`:
-```
-art-timelapse --cli --frames test --sai
-```
-Interactive setup:
-```
-Press Ctrl+C here to stop at any time
-Writing to frames folder: test; container webm; codec vp80
-Select a canvas to record (Ctrl+C to cancel):
-[1] NewCanvas16 ()
-[2] NewCanvas17 ()
-Enter index [1-2]:2
-Could not find window automatically
-Click on a subwindow to start recording. Right click to cancel.
-Tracking input for window: Default - Wine desktop
-OpenCV: FFMPEG: tag 0x30387076/'vp80' is not supported with codec id 139 and format 'webm / WebM'
-^C
-```
-Finishing recording (pressed Ctrl+C).
-
-The export type is inferred from the `--frames` path:
-```
-art-timelapse --cli --frames test --sai --export --web
-```
-Output:
-```
-Press Ctrl+C here to stop at any time
-Reading from frames folder: test
-Writing to video: test.mp4 (avc1)
-100%|████████████████████████████| 26/26 [00:00<00:00, 184.61frames/s]
-```
-
 ### Windows prebuilt executable (pyinstaller)
 You can find prebuilt executables in the releases page instead of going through the source installation https://github.com/cromachina/art-timelapse/releases. It may still depend on ffmpeg (https://ffmpeg.org/download.html) being installed separately and added to the exe directory. One caveat of using the prebuilt pyinstaller executable is that it has a pretty slow startup time.
 
@@ -114,19 +45,22 @@ You can find prebuilt executables in the releases page instead of going through 
   - Update `nix.conf` so you can use flakes:
     - `echo "extra-experimental-features = nix-command flakes" | sudo tee -a /etc/nix/nix.conf`
 - Run: `nix run github:cromachina/art-timelapse`
-- Run a specific version: `nix run github:cromachina/art-timelapse/v2.0.0`
+- Run a specific version: `nix run github:cromachina/art-timelapse/v3.0.0`
 - Optional: Consider using `system-manager` if you want to install in a persistent config file: https://github.com/numtide/system-manager
 
 ### Installing on NixOS
 - Make sure experimental features are enabled for `nix-command` and `flakes`.
-- Example, run from source directory: `nix run .#`
+- Example, run from source directory: `nix run`
 - Example, run from git: `nix run github:cromachina/art-timelapse`
 - Example, add to your `configuration.nix` so you can run `art-timelapse` directly:
 ```nix
 environment.systemPackages = with pkgs; [
-  (builtins.getFlake "github:cromachina/art-timelapse/v2.0.0").packages.${pkgs.system}.default
+  (builtins.getFlake "github:cromachina/art-timelapse/v3.0.0").packages.${pkgs.system}.default
 ];
 ```
+
+### Local dev
+- Run `python build_local.py` to build or update translation files for local testing.
 
 ### Running in Wayland
 The dependencies `mss` (used for taking screenshots for both the window grabber and screen recording) and `pywinctl` (used by the window grabber and input tracker to identify the target window) do not currently work with Wayland compositors.

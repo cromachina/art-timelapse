@@ -66,7 +66,7 @@
         version = project.version;
         scripts = project.scripts;
         root = "$PWD/src";
-        dependencies = getPkgs project.optional-dependencies.dev;
+        dependencies = package.build-system ++ getPkgs project.optional-dependencies.dev;
       };
     in
     {

@@ -1,17 +1,22 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = [
+    'setuptools',
+    'wheel',
+    'setuptools-gettext',
+    'translate-toolkit',
+]
+build-backend = 'setuptools.build_meta'
 
 [project]
-name = "art-timelapse"
-version = "2.2.1"
+name = 'art-timelapse'
+version = '3.0.0'
 authors = [
-    { name = "cromachina" }
+    { name = 'cromachina' }
 ]
-license = { file = "LICENSE" }
-description = "Create timelapses of art programs."
-readme = "README.md"
-requires-python = ">=3.11.2"
+license = { file = 'LICENSE' }
+description = 'Create timelapses of art programs.'
+readme = 'README.md'
+requires-python = '>=3.14'
 dependencies = [
     'numpy',
     'opencv-python',
@@ -19,7 +24,6 @@ dependencies = [
     'psd_tools',
     'pynput',
     'pywinctl',
-    'tqdm',
     'watchdog',
     'mss',
     'psutil',
@@ -27,13 +31,17 @@ dependencies = [
     'ttkbootstrap',
 ]
 
+[tool.setuptools-gettext]
+source_dir = 'po'
+build_dir = 'build/lib/art_timelapse/locales'
+
 [project.optional-dependencies]
 dev = [
-    "pyinstaller",
+    'pyinstaller',
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/cromachina/art-timelapse"
+'Homepage' = 'https://github.com/cromachina/art-timelapse'
 
 [project.scripts]
-art-timelapse = "art_timelapse.main:main"
+art-timelapse = 'art_timelapse.gui:main'

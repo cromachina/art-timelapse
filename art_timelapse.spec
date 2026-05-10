@@ -4,7 +4,7 @@ a = Analysis(
     ['pyinstaller_main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('./src/art_timelapse/locales', 'art_timelapse/locales')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -14,24 +14,6 @@ a = Analysis(
     optimize=0,
 )
 pyz = PYZ(a.pure)
-
-exe_console = EXE(
-    pyz,
-    a.scripts,
-    [],
-    exclude_binaries=True,
-    name='art-timelapse-console',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    console=True,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
 
 exe = EXE(
     pyz,
@@ -52,7 +34,6 @@ exe = EXE(
 )
 
 coll = COLLECT(
-    exe_console,
     exe,
     a.binaries,
     a.datas,

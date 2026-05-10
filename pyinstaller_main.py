@@ -1,2 +1,2 @@
-from art_timelapse.main import main
+from art_timelapse.gui import main
 main()
