@@ -1,6 +1,8 @@
 # Art Timelapse
 This program lets you create efficient timelapses of your drawing.
 
+<img width="637" height="727" alt="image" src="https://github.com/user-attachments/assets/c87acd1d-f517-454a-a4f2-7e5edc1e9e9e" />
+
 ### Why
 I made this program to be used primarily with Paint Tool SAIv2, (which does not have any builtin timelapse tool), however it can be used with any other program.
 Previously I was reluctant to record drawing videos with OBS Studio, because I would have to do post-processing on every video:
