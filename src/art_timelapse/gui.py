@@ -750,8 +750,8 @@ class App(asynctk.AsyncTk):
             if self.operation_task is None and self.selected_tab_var.get() == 0:
                 try:
                     self.set_sai_proc()
-                except:
-                    pass
+                except Exception as ex:
+                    logging.exception(ex)
             await asyncio.sleep(0.25)
 
     def run_operation(self, recording_mode, task, *args, **kwargs):

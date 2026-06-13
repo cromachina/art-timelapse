@@ -16,33 +16,15 @@
       pyPkgs = python.pkgs // {
         pymemoryeditor = pyPkgs.buildPythonPackage {
           pname = "pymemoryeditor";
-          version = "1.5.24";
+          version = "2.0.0";
           src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/e5/0f/efcf707643bdce3831726a55361b72754788d8b8502a48bdf7005b8c214c/pymemoryeditor-1.5.24-py3-none-any.whl";
-            sha256 = "0d607bd43d49fa7b5c8479d9c53ea2386baf06ab298b9c464bb03553babbd60e";
+            url = "https://files.pythonhosted.org/packages/72/ef/aba8f986b7e143c16394fd6ac19dd0b5fcb9934962830821063bca5c0b72/pymemoryeditor-2.0.0-py3-none-any.whl";
+            sha256 = "efd464f08064c3547ce00090af878fb8a819796adbd6b29b11b5ccee6659b6b7";
           };
           format = "wheel";
           doCheck = false;
           propagatedBuildInputs = with pyPkgs; [
             psutil
-          ];
-        };
-        ttkbootstrap = pyPkgs.buildPythonPackage rec {
-          pname = "ttkbootstrap";
-          version = "1.20.1";
-          src = pkgs.fetchFromGitHub {
-            owner = "israel-dryer";
-            repo = "ttkbootstrap";
-            rev = "v${version}";
-            hash = "sha256-HZiLd134J0I+4egpLjTO+b+ZSyRjBSH8bf69jLOjAh0=";
-          };
-          format = "pyproject";
-          doCheck = false;
-          build-system = with pyPkgs; [
-            setuptools
-          ];
-          propagatedBuildInputs = with pyPkgs; [
-            pillow
           ];
         };
       };

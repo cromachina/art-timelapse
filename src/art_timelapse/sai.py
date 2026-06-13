@@ -68,29 +68,6 @@ def RPOINTER32(dtype):
 def RPOINTER(dtype):
     return _RPOINTER(dtype, RemotePointer64)
 
-if 'win' in sys.platform:
-    psapi = ctypes.WinDLL('Psapi.dll')
-    k32 = ctypes.windll.kernel32
-
-    def get_base_address_windows(pid:int) -> int:
-        PROCESS_ALL_ACCESS = 0x1f0fff
-        process_handle = k32.OpenProcess(
-            PROCESS_ALL_ACCESS,
-            False,
-            pid
-        )
-        modules = (ctypes.c_void_p * 1)()
-        LIST_MODULES_ALL = 0x3
-        psapi.EnumProcessModulesEx(
-            process_handle,
-            ctypes.byref(modules),
-            ctypes.sizeof(modules),
-            ctypes.byref(ctypes.c_ulong()),
-            LIST_MODULES_ALL
-        )
-        k32.CloseHandle(process_handle)
-        return modules[0]
-
 sai_api_lookup = {}
 def register_sai_api(api):
     sai_api_lookup[api.exe_hash] = api
@@ -308,16 +285,12 @@ def find_running_sai_pid() -> int | None:
 
 def get_region_data_by_name(proc:AbstractProcess, name:str) -> tuple[str, int] | tuple[None, None]:
     for region in proc.get_memory_regions():
-        path = region['struct'].Path.decode()
-        if name in path:
-            return path, region['address']
+        if name in region.path:
+            return region.path, region.address
     return None, None
 
 def get_base_address(proc:AbstractProcess) -> int | None:
-    if 'win' in sys.platform:
-        return get_base_address_windows(proc.pid)
-    else: # linux
-        return get_region_data_by_name(proc, psutil.Process(proc.pid).name())[1]
+    return get_region_data_by_name(proc, psutil.Process(proc.pid).name())[1]
 
 def get_exe_path(proc:AbstractProcess) -> str:
     psproc = psutil.Process(proc.pid)
