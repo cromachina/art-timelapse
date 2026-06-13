@@ -30,11 +30,17 @@ class RemotePointerBase(ctypes.Structure):
         offset = dsize * index
         byte_size = dsize * count
         address = self.value + offset
-        data = proc.read_process_memory(address, bytes, byte_size)
-        if count == 1:
-            result = self._type_.from_buffer_copy(data)
-        else:
-            result = (self._type_ * count).from_buffer_copy(data)
+        try:
+            data = proc.read_process_memory(address, bytes, byte_size)
+            if count == 1:
+                result = self._type_.from_buffer_copy(data)
+            else:
+                result = (self._type_ * count).from_buffer_copy(data)
+        except:
+            if count == 1:
+                result = self._type_()
+            else:
+                result = (self._type_ * count)()
         if isinstance(result, ctypes._SimpleCData):
             return result.value
         return result
@@ -306,19 +312,26 @@ def get_exe_hash(proc:AbstractProcess) -> str | None:
     with open(exe_path, 'rb') as f:
         return hashlib.file_digest(f, 'md5').hexdigest()
 
+class NoSaiProcessDetected(Exception):
+    pass
+
 def get_sai_api_from_pid(pid:int) -> SAI_API_Base | None:
-    with OpenProcess(pid=pid) as proc:
-        exe_hash = get_exe_hash(proc)
-        return get_sai_api(exe_hash)
+    try:
+        with OpenProcess(pid=pid) as proc:
+            exe_hash = get_exe_hash(proc)
+            return get_sai_api(exe_hash)
+    except:
+        raise NoSaiProcessDetected()
 
 class SAI:
     def __init__(self, override_api=None):
         self.proc = None
         pid = find_running_sai_pid()
-        if pid is None:
-            raise Exception(_('No SAI process detected.'))
-        self.proc = OpenProcess(pid=pid)
-        self.psutil_proc = psutil.Process(pid=pid)
+        try:
+            self.proc = OpenProcess(pid=pid)
+            self.psutil_proc = psutil.Process(pid=pid)
+        except:
+            raise NoSaiProcessDetected()
         if override_api is None:
             api = get_sai_api_from_pid(pid)
         else:

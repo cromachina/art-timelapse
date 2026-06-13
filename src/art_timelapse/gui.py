@@ -731,19 +731,22 @@ class App(asynctk.AsyncTk):
             if sai_pid is None:
                 self.sai_version_status_var.set(_('SAI is not running'))
             elif sai_pid != self.last_pid:
-                self.last_pid = sai_pid
-                api = sai.get_sai_api_from_pid(sai_pid)
-                # Found version
-                if api is not None:
-                    self.sai_proc = sai.SAI()
-                    self.sai_version_status_var.set(self.sai_proc.api.version_name)
-                # Override version
-                else:
-                    version_index = self.sai_version_override_var.get()
-                    api = sai.get_sai_api_list()[version_index]
-                    self.sai_proc = sai.SAI(api)
-                    self.sai_version_status_var.set(f'{self.sai_proc.api.version_name}' + tr(_('(Override)')))
-                self.refresh_sai_canvses()
+                try:
+                    self.last_pid = sai_pid
+                    api = sai.get_sai_api_from_pid(sai_pid)
+                    # Found version
+                    if api is not None:
+                        self.sai_proc = sai.SAI()
+                        self.sai_version_status_var.set(self.sai_proc.api.version_name)
+                    # Override version
+                    else:
+                        version_index = self.sai_version_override_var.get()
+                        api = sai.get_sai_api_list()[version_index]
+                        self.sai_proc = sai.SAI(api)
+                        self.sai_version_status_var.set(f'{self.sai_proc.api.version_name}' + tr(_('(Override)')))
+                    self.refresh_sai_canvses()
+                except sai.NoSaiProcessDetected:
+                    pass
 
     async def run_background_task(self):
         while True:
