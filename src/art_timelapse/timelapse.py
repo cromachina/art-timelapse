@@ -6,7 +6,7 @@ import logging
 import sys
 import importlib.metadata
 
-from PIL import Image, ImageOps, ImageTk
+from PIL import Image, ImageTk
 from psd_tools import PSDImage
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -14,6 +14,7 @@ import cv2
 import numpy as np
 import pynput
 import pywinctl
+from pywinbox import Point, Size, Rect
 from mss import mss
 
 from . import asynctk, sai, _
@@ -22,16 +23,57 @@ __version__ = importlib.metadata.version('art-timelapse')
 
 FPS = 30
 
-Vec2 = tuple[int, int]
-
 # MSS has issues being created and destroyed multiple times on Linux.
 sct = mss()
 
-def grab(sct, bbox):
+def get_size(img:np.ndarray) -> Size:
+    return Size(img.shape[1], img.shape[0])
+
+def get_channels(img:np.ndarray) -> int:
+    return img.shape[2]
+
+def to_shape(size:Size, channels) -> tuple[int, int, int]:
+    return size.height, size.width, channels
+
+def grab_numpy(sct, bbox) -> np.ndarray:
+    return np.array(sct.grab(bbox))[:,:,:3]
+
+def grab(sct, bbox) -> Image.Image:
     img = sct.grab(bbox)
     return Image.frombytes('RGB', img.size, img.bgra, 'raw', 'BGRX')
 
-def expand_path(path):
+def get_fit_size(input_size:Size, output_size:Size) -> Size:
+    output_size = output_size
+    result_w = output_size.width
+    result_h = int(output_size.width / input_size.width * input_size.height)
+    if result_h > output_size.height:
+        result_h = output_size.height
+        result_w = int(output_size.height / input_size.height * input_size.width)
+    return Size(result_w, result_h)
+
+def image_fit_and_pad(image:np.ndarray, size:Size, interpolation=cv2.INTER_AREA) -> np.ndarray:
+    image_size = get_size(image)
+    if image_size == size:
+        return image
+    fit_size = get_fit_size(image_size, size)
+    fit_top = (size.height - fit_size.height) // 2
+    fit_bottom = size.height - fit_size.height - fit_top
+    fit_left = (size.width - fit_size.width) // 2
+    fit_right = size.width - fit_size.width - fit_left
+    result = cv2.resize(image, fit_size, interpolation=interpolation)
+    return cv2.copyMakeBorder(result, fit_top, fit_bottom, fit_left, fit_right, cv2.BORDER_CONSTANT)
+
+def image_thumbnail(image:np.ndarray, size:Size, interpolation=cv2.INTER_AREA):
+    image_size = get_size(image)
+    if image_size.width <= size.width and image_size.height <= size.height:
+        return image
+    fit_size = get_fit_size(image_size, size)
+    return cv2.resize(image, fit_size, interpolation=interpolation)
+
+def is_image_equal(a:np.ndarray | None, b:np.ndarray | None) -> bool:
+    return (a is not None and b is not None) and (a.shape == b.shape) and (np.all(a == b))
+
+def expand_path(path:Path) -> Path:
     path = Path(path)
     try:
         path = path.expanduser()
@@ -42,16 +84,16 @@ def expand_path(path):
 def even_dim(a:int) -> int:
     return a if a % 2 == 0 else a - 1
 
-def even_size(size:Vec2) -> Vec2:
-    return even_dim(int(size[0])), even_dim(int(size[1]))
+def even_size(size:Size) -> Size:
+    return Size(even_dim(int(size.width)), even_dim(int(size.height)))
 
-def max_size(size_a:Vec2, size_b:Vec2) -> Vec2:
-    return max(size_a[0], size_b[0]), max(size_a[1], size_b[1])
+def max_size(size_a:Size, size_b:Size) -> Size:
+    return Size(max(size_a.width, size_b.width), max(size_a.height, size_b.height))
 
-def point_in_bbox(bbox, point):
-    return bbox[0] <= point[0] <= bbox[2] and bbox[1] <= point[1] <= bbox[3]
+def point_in_bbox(bbox:Rect, point:Point):
+    return bbox.left <= point.x <= bbox.right and bbox.bottom <= point.y <= bbox.top
 
-def nth_counter(nth):
+def nth_counter(nth:int):
     counter = 1
     while True:
         if counter == 1:
@@ -61,10 +103,10 @@ def nth_counter(nth):
             counter -= 1
             yield False
 
-def get_spanned_rect(pos1, pos2):
+def get_spanned_rect(pos1:Point, pos2:Point) -> Rect:
     p1x, p1y = pos1
     p2x, p2y = pos2
-    return min(p1x, p2x), min(p1y, p2y), max(p1x, p2x), max(p1y, p2y)
+    return Rect(min(p1x, p2x), min(p1y, p2y), max(p1x, p2x), max(p1y, p2y))
 
 class WindowGrabber(tk.Toplevel):
     def __init__(self, drag_area, *args, **kwargs):
@@ -176,7 +218,7 @@ class WindowGrabber(tk.Toplevel):
         if self.cancelled:
             return None, None
         window = pywinctl.getTopWindowAt(*self.pos1)
-        bbox = (*self.pos1, *self.pos2) if self.drag_area else None
+        bbox = Rect(*self.pos1, *self.pos2) if self.drag_area else None
         return window, bbox
 
 async def get_window_and_bbox(drag_grab):
@@ -206,7 +248,7 @@ async def get_window_from_pid(pid):
 
 # Handles output to a video file.
 class VideoWriter:
-    def __init__(self, file_path, size, container, codec, fps=FPS, log=False):
+    def __init__(self, file_path:Path, size:Size, container:str, codec:str, fps=FPS, log=False):
         self.size = even_size(size)
         self.file_path = expand_path(file_path).with_suffix(f'.{container}')
         if log:
@@ -222,20 +264,15 @@ class VideoWriter:
     def close(self):
         self.writer.release()
 
-    def write(self, img, cvt_color=True):
-        if img.size != self.size:
-            img = ImageOps.pad(img, self.size)
-        img = np.asarray(img)
+    def write(self, img:np.ndarray, cvt_color=False):
+        img = image_fit_and_pad(img, self.size)
         if cvt_color:
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         self.writer.write(img)
 
-    def write_numpy(self, data):
-        self.writer.write(data)
-
 # Handles input from a video file.
 class VideoReader:
-    def __init__(self, file_path):
+    def __init__(self, file_path:Path):
         self.video_reader = cv2.VideoCapture(str(expand_path(file_path)))
 
     def __enter__(self):
@@ -254,12 +291,12 @@ class VideoReader:
     def get_frame_count(self):
         return int(self.video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    def get_size(self):
-        return int(self.video_reader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    def get_size(self) -> Size:
+        return Size(int(self.video_reader.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.video_reader.get(cv2.CAP_PROP_FRAME_HEIGHT)))
 
 # Automatically open and close video writers if the input images change size.
 class VideoSequenceWriter:
-    def __init__(self, frames_path, container, codec, frames_auto_split_count=500):
+    def __init__(self, frames_path:Path, container:str, codec:str, frames_auto_split_count=500):
         self.container = container
         self.codec = codec
         self.folder = expand_path(frames_path)
@@ -279,30 +316,30 @@ class VideoSequenceWriter:
         if self.writer is not None:
             self.writer.close()
 
-    def open_new(self, size):
+    def open_new(self, size:Size):
         self.writer = VideoWriter(self.folder / f'{time.time_ns()}', size, self.container, self.codec)
         self.frames_count = 0
 
-    def check_new(self, size):
+    def check_new(self, size:Size):
         if self.writer is None:
             self.open_new(size)
         elif even_size(size) != self.writer.size or (self.frames_auto_split_count != 0 and self.frames_count >= self.frames_auto_split_count):
             self.writer.close()
             self.open_new(size)
 
-    def write(self, img):
-        self.check_new(img.size)
-        self.writer.write(img)
+    def write(self, img:np.ndarray, cvt_color=False):
+        self.check_new(get_size(img))
+        self.writer.write(img, cvt_color)
         self.frames_count += 1
 
 # Read a folder of mp4 files as if it were a single contiguous file.
 class VideoSequenceReader:
-    def __init__(self, folder):
+    def __init__(self, folder:Path):
         self.folder = expand_path(folder)
         logging.info(_('Reading from frames folder:') + f' {self.folder}')
         self.reader = None
         self.frame_count = 0
-        self.size = (0, 0)
+        self.size = Size(0, 0)
         self.files = []
         self.file_index = 0
         for file in sorted(self.folder.glob('*')):
@@ -429,7 +466,7 @@ class InputTracker(EventTrackerBase):
 
 # Track a file and when it gets saved/closed.
 class FileTracker(FileSystemEventHandler, EventTrackerBase):
-    def __init__(self, target_file):
+    def __init__(self, target_file:Path):
         FileSystemEventHandler.__init__(self)
         EventTrackerBase.__init__(self)
         self.target_file = expand_path(target_file)
@@ -450,17 +487,16 @@ class FileTracker(FileSystemEventHandler, EventTrackerBase):
         self.observer.join()
         logging.info(_('Stopped tracking file:') + f' {self.target_file}')
 
-# Filter a sequence of frame indices achieve a specific maximum video length.
-def filter_frames(export_time_limit, frames, fps):
+# Get frame indices achieve a specific maximum video length.
+def get_frame_indices(export_time_limit:int, frame_count:int, fps:int):
     if export_time_limit > 0:
-        frame_count = len(frames)
         target_frames = int(export_time_limit * fps)
         if frame_count > target_frames:
             nth = frame_count / target_frames
-            return [frames[round(i * nth)] for i in range(target_frames)]
-    return frames
+            return (round(i * nth) for i in range(target_frames))
+    return range(frame_count)
 
-def export(progress_iter, export_time_limit, fps, frames, container, codec, output_path=''):
+def export(progress_iter:function, export_time_limit:int, fps:int, frames:Path, container:str, codec:str, output_path=''):
     frames = expand_path(frames)
     if output_path == '':
         output_path = frames
@@ -469,26 +505,21 @@ def export(progress_iter, export_time_limit, fps, frames, container, codec, outp
     with VideoSequenceReader(frames) as reader:
         if reader.frame_count == 0:
             return
-        last_frame = Image.fromarray(reader.get_last_frame())
-        data_frames = list(range(reader.frame_count))
-        data_frames = filter_frames(export_time_limit, data_frames, fps)
+        frame_indices = get_frame_indices(export_time_limit, reader.frame_count, fps)
         index = 0
         with VideoWriter(output_path, reader.size, container, codec, fps=fps, log=True) as writer:
-            writer.write(last_frame, False)
-            for frame in progress_iter(data_frames, unit='frames'):
+            writer.write(reader.get_last_frame())
+            for frame in progress_iter(frame_indices, unit='frames'):
                 while index < frame:
                     reader.read()
                     index += 1
                 data = reader.read()
-                data = Image.fromarray(data)
                 index += 1
-                writer.write(data, False)
+                writer.write(data)
 
-def is_different_image(a, b):
-    return (a is None or b is None) or (a.shape != b.shape) or (np.any(a != b))
-
-async def sai_capture(sai_proc:sai.SAI, canvas, image_size_limit, frames, container, codec, auto_split_count):
+async def sai_capture(sai_proc:sai.SAI, canvas, image_size_limit:int, frames:Path, container:str, codec:str, auto_split_count:int):
     window = await get_window_from_pid(sai_proc.get_pid())
+    image_size_limit_size = Size(image_size_limit, image_size_limit)
     if window is None:
         return
     with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, InputTracker(window) as tracker:
@@ -499,30 +530,30 @@ async def sai_capture(sai_proc:sai.SAI, canvas, image_size_limit, frames, contai
                 break
             map_level = sai_proc.api.get_map_level_for_size(canvas, image_size_limit)
             img = sai_proc.api.get_canvas_image(canvas, map_level)
-            if not is_different_image(last_img, img):
+            if is_image_equal(last_img, img):
                 continue
             last_img = img
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(img)
-            img.thumbnail((image_size_limit, image_size_limit))
+            img = image_thumbnail(img, image_size_limit_size)
             writer.write(img)
 
-async def screen_capture(window, bbox, frames, container, codec, auto_split_count):
+async def screen_capture(window:pywinctl.Window, bbox:Rect, frames:Path, container:str, codec:str, auto_split_count:int):
     with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, InputTracker(window, bbox) as tracker:
         async for _event in tracker.get_event_stream():
-            img = grab(sct, window.rect if bbox is None else bbox)
-            writer.write(img)
+            img = grab_numpy(sct, window.rect if bbox is None else bbox)
+            writer.write(img, cvt_color=True)
 
-async def psd_capture(psd_file, image_size_limit, frames, container, codec, auto_split_count):
+async def psd_capture(psd_file:Path, image_size_limit:int, frames:Path, container:str, codec:str, auto_split_count:int):
+    psd_file = expand_path(psd_file)
+    image_size_limit_size = Size(image_size_limit, image_size_limit)
     with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, FileTracker(psd_file) as tracker:
         async for _event in tracker.get_event_stream():
             while True:
                 try:
-                    img = PSDImage.open(psd_file).composite()
+                    img = np.array(PSDImage.open(psd_file).composite())
                 except:
                     await asyncio.sleep(0.25)
                     continue
                 else:
                     break
-            img.thumbnail((image_size_limit, image_size_limit))
-            writer.write(img)
+            img = image_thumbnail(img, image_size_limit_size)
+            writer.write(img, cvt_color=True)

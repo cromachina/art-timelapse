@@ -9,7 +9,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'art-timelapse'
-version = '3.0.2'
+version = '3.0.3'
 authors = [
     { name = 'cromachina' }
 ]
@@ -24,6 +24,7 @@ dependencies = [
     'psd_tools',
     'pynput',
     'pywinctl',
+    'pywinbox',
     'watchdog',
     'mss',
     'psutil',
