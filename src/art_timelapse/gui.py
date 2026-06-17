@@ -132,11 +132,10 @@ class ProgressRow(ttk.Frame):
         self.progressbar.pack(fill=ttkc.X, expand=True)
         self.loop = asyncio.get_running_loop()
 
-    def iterate(self, iterable, unit='it'):
+    def iterate(self, iterable, total, unit='it'):
         self.last_update = float('-inf')
         self.avg_ips = RollingAverage()
         self.avg_eta_sec = RollingAverage()
-        total = len(iterable)
         i = 0
         start_time = time.monotonic()
         delta = 0
@@ -835,8 +834,8 @@ class App(asynctk.AsyncTk):
         else:
             container, codec = self.export_config_frame.get_format()
         output_path = self.export_file_var.get()
-        def progress_kill_check(iterable, unit):
-            for it in self.export_progress.iterate(iterable, unit):
+        def progress_kill_check(iterable, total, unit):
+            for it in self.export_progress.iterate(iterable, total, unit):
                 yield it
                 if not self.operation_thread_running:
                     logging.info(tr(_('Export cancelled')))

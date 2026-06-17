@@ -51,7 +51,21 @@ def get_fit_size(input_size:Size, output_size:Size) -> Size:
         result_w = int(output_size.height / input_size.height * input_size.width)
     return Size(result_w, result_h)
 
-def image_fit_and_pad(image:np.ndarray, size:Size, interpolation=cv2.INTER_AREA) -> np.ndarray:
+def get_reuse_array(storage:dict, key:str, shape:tuple) -> np.ndarray:
+    if storage is None:
+        return None
+    if key in storage:
+        array = storage[key]
+        if array.shape != shape:
+            array = np.empty(shape, dtype=np.uint8)
+            storage[key] = array
+        return array
+    else:
+        array = np.empty(shape, dtype=np.uint8)
+        storage[key] = array
+        return array
+
+def image_fit_and_pad(image:np.ndarray, size:Size, interpolation=cv2.INTER_AREA, reuse_arrays:dict=None) -> np.ndarray:
     image_size = get_size(image)
     if image_size == size:
         return image
@@ -60,15 +74,22 @@ def image_fit_and_pad(image:np.ndarray, size:Size, interpolation=cv2.INTER_AREA)
     fit_bottom = size.height - fit_size.height - fit_top
     fit_left = (size.width - fit_size.width) // 2
     fit_right = size.width - fit_size.width - fit_left
-    result = cv2.resize(image, fit_size, interpolation=interpolation)
-    return cv2.copyMakeBorder(result, fit_top, fit_bottom, fit_left, fit_right, cv2.BORDER_CONSTANT)
+    if fit_size == image_size:
+        resize_dst = image
+    else:
+        resize_dst = get_reuse_array(reuse_arrays, 'resize', to_shape(fit_size, get_channels(image)))
+        resize_dst = cv2.resize(image, fit_size, resize_dst, interpolation=interpolation)
+    border_dst = get_reuse_array(reuse_arrays, 'border', to_shape(size, get_channels(image)))
+    return cv2.copyMakeBorder(resize_dst, fit_top, fit_bottom, fit_left, fit_right, cv2.BORDER_CONSTANT, border_dst)
 
-def image_thumbnail(image:np.ndarray, size:Size, interpolation=cv2.INTER_AREA):
+def image_thumbnail(image:np.ndarray, size:Size, dst=None, interpolation=cv2.INTER_AREA):
     image_size = get_size(image)
     if image_size.width <= size.width and image_size.height <= size.height:
         return image
     fit_size = get_fit_size(image_size, size)
-    return cv2.resize(image, fit_size, interpolation=interpolation)
+    if dst is not None and get_size(dst) != size:
+        dst = None
+    return cv2.resize(image, fit_size, dst=dst, interpolation=interpolation)
 
 def is_image_equal(a:np.ndarray | None, b:np.ndarray | None) -> bool:
     return (a is not None and b is not None) and (a.shape == b.shape) and (np.all(a == b))
@@ -264,8 +285,8 @@ class VideoWriter:
     def close(self):
         self.writer.release()
 
-    def write(self, img:np.ndarray, cvt_color=False):
-        img = image_fit_and_pad(img, self.size)
+    def write(self, img:np.ndarray, cvt_color=False, reuse_arrays:dict=None):
+        img = image_fit_and_pad(img, self.size, reuse_arrays=reuse_arrays)
         if cvt_color:
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         self.writer.write(img)
@@ -274,6 +295,7 @@ class VideoWriter:
 class VideoReader:
     def __init__(self, file_path:Path):
         self.video_reader = cv2.VideoCapture(str(expand_path(file_path)))
+        self.data = None
 
     def __enter__(self):
         return self
@@ -285,8 +307,8 @@ class VideoReader:
         self.video_reader.release()
 
     def read(self):
-        ret, data = self.video_reader.read()
-        return data if ret else None
+        ret, self.data = self.video_reader.read(self.data)
+        return self.data if ret else None
 
     def get_frame_count(self):
         return int(self.video_reader.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -305,6 +327,7 @@ class VideoSequenceWriter:
         logging.info(_('Writing to frames folder:') + f' {self.folder}; container: {container}; codec: {codec}')
         self.folder.mkdir(parents=True, exist_ok=True)
         self.writer = None
+        self.reuse_arrays = {}
 
     def __enter__(self):
         return self
@@ -329,7 +352,7 @@ class VideoSequenceWriter:
 
     def write(self, img:np.ndarray, cvt_color=False):
         self.check_new(get_size(img))
-        self.writer.write(img, cvt_color)
+        self.writer.write(img, cvt_color, reuse_arrays=self.reuse_arrays)
         self.frames_count += 1
 
 # Read a folder of mp4 files as if it were a single contiguous file.
@@ -493,8 +516,8 @@ def get_frame_indices(export_time_limit:int, frame_count:int, fps:int):
         target_frames = int(export_time_limit * fps)
         if frame_count > target_frames:
             nth = frame_count / target_frames
-            return (round(i * nth) for i in range(target_frames))
-    return range(frame_count)
+            return target_frames, (round(i * nth) for i in range(target_frames))
+    return frame_count, range(frame_count)
 
 def export(progress_iter:function, export_time_limit:int, fps:int, frames:Path, container:str, codec:str, output_path=''):
     frames = expand_path(frames)
@@ -505,21 +528,30 @@ def export(progress_iter:function, export_time_limit:int, fps:int, frames:Path, 
     with VideoSequenceReader(frames) as reader:
         if reader.frame_count == 0:
             return
-        frame_indices = get_frame_indices(export_time_limit, reader.frame_count, fps)
+        total_frames, frame_indices = get_frame_indices(export_time_limit, reader.frame_count, fps)
         index = 0
+        reuse_arrays = {}
         with VideoWriter(output_path, reader.size, container, codec, fps=fps, log=True) as writer:
-            writer.write(reader.get_last_frame())
-            for frame in progress_iter(frame_indices, unit='frames'):
+            writer.write(reader.get_last_frame(), reuse_arrays=reuse_arrays)
+            for frame in progress_iter(frame_indices, total_frames, unit='frames'):
                 while index < frame:
                     reader.read()
                     index += 1
                 data = reader.read()
                 index += 1
-                writer.write(data)
+                writer.write(data, reuse_arrays=reuse_arrays)
+
+def copy_into(dst:np.ndarray, src:np.ndarray) -> np.ndarray:
+    if dst is not None and dst.shape == src.shape:
+        np.copyto(dst, src)
+        return dst
+    else:
+        return src.copy()
 
 async def sai_capture(sai_proc:sai.SAI, canvas, image_size_limit:int, frames:Path, container:str, codec:str, auto_split_count:int):
     window = await get_window_from_pid(sai_proc.get_pid())
     image_size_limit_size = Size(image_size_limit, image_size_limit)
+    thumbnail = None
     if window is None:
         return
     with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, InputTracker(window) as tracker:
@@ -532,9 +564,9 @@ async def sai_capture(sai_proc:sai.SAI, canvas, image_size_limit:int, frames:Pat
             img = sai_proc.api.get_canvas_image(canvas, map_level)
             if is_image_equal(last_img, img):
                 continue
-            last_img = img
-            img = image_thumbnail(img, image_size_limit_size)
-            writer.write(img)
+            last_img = copy_into(last_img, img)
+            thumbnail = image_thumbnail(img, image_size_limit_size, thumbnail)
+            writer.write(thumbnail)
 
 async def screen_capture(window:pywinctl.Window, bbox:Rect, frames:Path, container:str, codec:str, auto_split_count:int):
     with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, InputTracker(window, bbox) as tracker:

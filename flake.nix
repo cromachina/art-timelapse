@@ -16,10 +16,10 @@
       pyPkgs = python.pkgs // {
         pymemoryeditor = pyPkgs.buildPythonPackage {
           pname = "pymemoryeditor";
-          version = "2.0.0";
+          version = "2.0.1";
           src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/72/ef/aba8f986b7e143c16394fd6ac19dd0b5fcb9934962830821063bca5c0b72/pymemoryeditor-2.0.0-py3-none-any.whl";
-            sha256 = "efd464f08064c3547ce00090af878fb8a819796adbd6b29b11b5ccee6659b6b7";
+            url = "https://files.pythonhosted.org/packages/96/e8/31450ac98740c52d553c9665979fa9f4a3dfedbc4e20b5650c8b54ea259b/pymemoryeditor-2.0.1-py3-none-any.whl";
+            sha256 = "132427cf1762b9f0143a4c47c8e91968ff3d7746e7e39d0ee8e7ef9b4115fda7";
           };
           format = "wheel";
           doCheck = false;
