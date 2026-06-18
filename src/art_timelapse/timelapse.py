@@ -103,7 +103,7 @@ def expand_path(path:Path) -> Path:
     return path
 
 def even_dim(a:int) -> int:
-    return a if a % 2 == 0 else a - 1
+    return a if a % 2 == 0 else a + 1
 
 def even_size(size:Size) -> Size:
     return Size(even_dim(int(size.width)), even_dim(int(size.height)))
