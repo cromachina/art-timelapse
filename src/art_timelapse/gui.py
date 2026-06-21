@@ -27,7 +27,7 @@ def get_fixed_font(font_name='Consolas', font_size=10):
     if font_name in tk.font.families():
         font = (font_name, font_size)
     else:
-        if font_name not in ttk.font.names():
+        if font_name not in tk.font.names():
             font_name = 'TkFixedFont'
         font = tk.font.nametofont(font_name)
         font.config(size=font_size)
