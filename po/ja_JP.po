@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-09 17:43-0400\n"
-"PO-Revision-Date: 2026-05-09 23:11-0400\n"
+"POT-Creation-Date: 2026-06-21 22:47-0400\n"
+"PO-Revision-Date: 2026-06-21 22:54-0400\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "Language: ja\n"
@@ -17,42 +17,42 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Poedit 3.9\n"
-"X-Poedit-Basepath: ../../../..\n"
+"X-Poedit-Basepath: ../src/art_timelapse\n"
 "X-Poedit-SearchPath-0: .\n"
 
-#: art_timelapse/gui.py:238
+#: gui.py:236
 msgid "Select"
 msgstr "選択"
 
-#: art_timelapse/gui.py:238 art_timelapse/gui.py:513
+#: gui.py:236 gui.py:534
 msgid "Any"
 msgstr "どれでも"
 
-#: art_timelapse/gui.py:326
+#: gui.py:338
 msgid "mp4/avc1 - Works with most websites, including Twitter"
 msgstr "mp4/avc1 - Twitterを含むほとんどのWebサイトで動作します"
 
-#: art_timelapse/gui.py:327
+#: gui.py:339
 msgid "webm/vp80 - Better color quality, but larger file size"
 msgstr "webm/vp80 - 色品質は向上しますが、ファイル サイズは大きくなります"
 
-#: art_timelapse/gui.py:328
+#: gui.py:340
 msgid "Use custom container/codec"
 msgstr "カスタムコンテナ/コーデックを使用する"
 
-#: art_timelapse/gui.py:334
+#: gui.py:346
 msgid "Video type"
 msgstr "ビデオの種類"
 
-#: art_timelapse/gui.py:335
+#: gui.py:347
 msgid "Useful container/codec presets."
 msgstr "便利なコンテナ/コーデックのプリセット。"
 
-#: art_timelapse/gui.py:336
+#: gui.py:348
 msgid "Custom container"
 msgstr "カスタムコンテナ"
 
-#: art_timelapse/gui.py:337
+#: gui.py:349
 msgid ""
 "If you want to use a container that is not listed above, whatever is "
 "supported by OpenCV and FFMPEG."
@@ -60,11 +60,11 @@ msgstr ""
 "上記にリストされていないコンテナを使用する場合は、OpenCVおよびFFMPEGでサポー"
 "トされているコンテナを使用します。"
 
-#: art_timelapse/gui.py:338
+#: gui.py:350
 msgid "Custom codec"
 msgstr "カスタムコーデック"
 
-#: art_timelapse/gui.py:339
+#: gui.py:351
 msgid ""
 "If you want to use a codec that is not listed above, whatever is supported "
 "by OpenCV and FFMPEG."
@@ -72,23 +72,23 @@ msgstr ""
 "上記にリストされていないコーデックを使用する場合は、OpenCVおよびFFMPEGでサ"
 "ポートされているコーデックを使用します。"
 
-#: art_timelapse/gui.py:353
+#: gui.py:369
 msgid "Status"
 msgstr "状態"
 
-#: art_timelapse/gui.py:377
+#: gui.py:393
 msgid "Frames path"
 msgstr "フレームパス"
 
-#: art_timelapse/gui.py:378
+#: gui.py:394
 msgid "Folder where video recording cuts are saved."
 msgstr "ビデオ録画のカットが保存されるフォルダー。"
 
-#: art_timelapse/gui.py:381
+#: gui.py:397
 msgid "Auto split count"
 msgstr "自動分割回数"
 
-#: art_timelapse/gui.py:382
+#: gui.py:398
 msgid ""
 "Automatically split video output after this many frames. Enter 0 or leave "
 "blank to disable. This is useful to mitigate the chance of missing or "
@@ -98,88 +98,100 @@ msgstr ""
 "するか、空白のままにします。これは、システムクラッシュ後にビデオデータが欠落"
 "したり破損したりする可能性を軽減するのに役立ちます。"
 
-#: art_timelapse/gui.py:385
+#: gui.py:401
 msgid "Image size limit (px)"
 msgstr "画像サイズ制限(px)"
 
-#: art_timelapse/gui.py:386
+#: gui.py:402
 msgid "Captured images will be resized to this if larger than this value."
 msgstr ""
 "この値より大きい場合、キャプチャされた画像はこの値にサイズ変更されます。"
 
-#: art_timelapse/gui.py:465
+#: gui.py:486
 msgid "Start Recording"
 msgstr "録画を開始"
 
-#: art_timelapse/gui.py:466
+#: gui.py:487
 msgid "Export"
 msgstr "書き出す"
 
-#: art_timelapse/gui.py:484
+#: gui.py:505
 msgid "Click window grab and start recording"
 msgstr "ウィンドウグラブをクリックして録画を開始します"
 
-#: art_timelapse/gui.py:485
+#: gui.py:506
 msgid "Drag area grab and start recording"
 msgstr "ドラッグして領域を取得し、録画を開始します"
 
-#: art_timelapse/gui.py:500
+#: gui.py:521
 msgid "SAI Recording"
 msgstr "SAI録画"
 
-#: art_timelapse/gui.py:503
+#: gui.py:524
 msgid "SAI version detected"
 msgstr "検出されたSAIバージョン"
 
-#: art_timelapse/gui.py:504
+#: gui.py:525
 msgid "SAI version override"
 msgstr "SAIバージョンの上書き"
 
-#: art_timelapse/gui.py:505
+#: gui.py:526
 msgid "Canvas"
 msgstr "キャンバス"
 
-#: art_timelapse/gui.py:506
+#: gui.py:527
 msgid "Canvas preview"
 msgstr "キャンバスのプレビュー"
 
-#: art_timelapse/gui.py:510
+#: gui.py:531
 msgid "PSD Recording"
 msgstr "PSD録画"
 
-#: art_timelapse/gui.py:513
+#: gui.py:534
 msgid "PSD file"
 msgstr "PSDファイル"
 
-#: art_timelapse/gui.py:517
+#: gui.py:538
 msgid "Screen Recording"
 msgstr "画面録画"
 
-#: art_timelapse/gui.py:525
+#: gui.py:546
 msgid "Export Video"
 msgstr "ビデオのエクスポート"
 
-#: art_timelapse/gui.py:527
+#: gui.py:548
 msgid "Export file"
 msgstr "エクスポートファイル"
 
-#: art_timelapse/gui.py:528
+#: gui.py:549
 msgid "Export time limit"
 msgstr "エクスポート期限"
 
-#: art_timelapse/gui.py:529
+#: gui.py:550
 msgid "Export FPS"
 msgstr "FPSのエクスポート"
 
-#: art_timelapse/gui.py:530
+#: gui.py:551
+msgid "Preview last frame first"
+msgstr "最後のフレームを最初にプレビューする"
+
+#: gui.py:552
+msgid "Preview duration"
+msgstr "プレビューの再生時間"
+
+#: gui.py:553
 msgid "Use recording video type"
 msgstr "録画ビデオタイプを使用する"
 
-#: art_timelapse/gui.py:540
-msgid "Theme:"
-msgstr "テーマ："
+#: gui.py:561
+msgid "Stop Recording"
+msgstr "録音を停止する"
 
-#: art_timelapse/gui.py:568
+#: gui.py:562
+msgid "Stop Exporting"
+msgstr "エクスポートの停止"
+
+#: gui.py:564
 msgid ""
 "If the running SAI version cannot be detected, the selected override will be "
 "used."
@@ -187,15 +199,15 @@ msgstr ""
 "実行中のSAIバージョンが検出できない場合は、選択したオーバーライドが使用されま"
 "す。"
 
-#: art_timelapse/gui.py:569
+#: gui.py:565
 msgid "Select which open SAI canvas to record from."
 msgstr "どの開いているSAIキャンバスから記録するかを選択します。"
 
-#: art_timelapse/gui.py:570
+#: gui.py:566
 msgid "PSD/PSB file to record from as it is saved to disk."
 msgstr "ディスクに保存されるときに記録するPSD/PSBファイル。"
 
-#: art_timelapse/gui.py:571
+#: gui.py:567
 msgid ""
 "Captures the subwindow that was clicked on. Automatically adjusts capture "
 "size to the subwindow."
@@ -203,7 +215,7 @@ msgstr ""
 "クリックされたサブウィンドウをキャプチャします。サブウィンドウに合わせてキャ"
 "プチャ サイズを自動的に調整します。"
 
-#: art_timelapse/gui.py:572
+#: gui.py:568
 msgid ""
 "Captures a fixed area of the subwindow. Drag a rectangle like a screenshot "
 "tool."
@@ -211,7 +223,7 @@ msgstr ""
 "サブウィンドウの固定領域をキャプチャします。スクリーンショット ツールのように"
 "四角形をドラッグします。"
 
-#: art_timelapse/gui.py:573
+#: gui.py:569
 msgid ""
 "Path to the video file to export to. Extension is determined by video type. "
 "Leave blank to automatically use the frames path."
@@ -219,7 +231,7 @@ msgstr ""
 "エクスポート先のビデオ ファイルへのパス。拡張子はビデオの種類によって決まりま"
 "す。フレーム パスを自動的に使用するには、空白のままにします。"
 
-#: art_timelapse/gui.py:574
+#: gui.py:570
 msgid ""
 "Maximum time the exported video should be. Enter 0 or leave blank for no "
 "time limit."
@@ -227,7 +239,7 @@ msgstr ""
 "エクスポートされるビデオの最大時間。時間制限を設けない場合は、0を入力するか、"
 "空白のままにします。"
 
-#: art_timelapse/gui.py:575
+#: gui.py:571
 msgid ""
 "Set the FPS of the exported video. 30 is a common default. Lower FPS is "
 "better for PSD recording exports (like 5 FPS)."
@@ -235,14 +247,35 @@ msgstr ""
 "エクスポートされたビデオのFPSを設定します。30が一般的なデフォルトです。PSD録"
 "画のエクスポートには、FPSが低いほど適しています(5 FPSなど)。"
 
-#: art_timelapse/gui.py:576
+#: gui.py:572
+msgid ""
+"Display the last frame at the beginning of the exported video, like a "
+"preview of the finished timelapse."
+msgstr ""
+"エクスポートした動画の冒頭に、完成したタイムラプスのプレビューのように、最後"
+"のフレームを表示します。"
+
+#: gui.py:573
+msgid ""
+"The duration of the preview frame in seconds. Enter 0 or leave blank to "
+"display for only a single frame. This adds on to the final export duration."
+msgstr ""
+"プレビューフレームの再生時間（秒単位）。1フレームのみ表示するには、0を入力す"
+"るか、空欄のままにしてください。この時間は、最終的なエクスポート時間に加算さ"
+"れます。"
+
+#: gui.py:574
 msgid ""
 "Use the same video options as the recording tabs and ignore the below "
 "settings."
 msgstr ""
 "録画タブと同じビデオ オプションを使用し、以下の設定は無視してください。"
 
-#: art_timelapse/gui.py:627
+#: gui.py:578
+msgid "Theme:"
+msgstr "テーマ："
+
+#: gui.py:655
 msgid ""
 "Possible Wayland session is running because the following environment "
 "variable was set:"
@@ -250,7 +283,7 @@ msgstr ""
 "次の環境変数が設定されているため、Wayland セッションが実行されている可能性が"
 "あります："
 
-#: art_timelapse/gui.py:629
+#: gui.py:657
 msgid ""
 "Wayland sessions are currently not supported by dependencies mss and "
 "pywinctl."
@@ -258,7 +291,7 @@ msgstr ""
 "Waylandセッションは現在、依存関係mssおよびpywinctlではサポートされていませ"
 "ん。"
 
-#: art_timelapse/gui.py:630
+#: gui.py:658
 msgid ""
 "To work around this, you can run this tool and your desired art program "
 "inside of Xwayland, see README.md."
@@ -266,59 +299,47 @@ msgstr ""
 "この問題を回避するには、このツールと目的のアートプログラムをXwayland内で実行"
 "できます。README.mdを参照してください。"
 
-#: art_timelapse/gui.py:632
+#: gui.py:660
 msgid "Supported SAI versions:"
 msgstr "対応SAIバージョン："
 
-#: art_timelapse/gui.py:707
+#: gui.py:735
 msgid "SAI is not running"
 msgstr "SAIが起動していない"
 
-#: art_timelapse/gui.py:720
+#: gui.py:749
 msgid "(Override)"
 msgstr "（オーバーライド）"
 
-#: art_timelapse/gui.py:740
+#: gui.py:771
 msgid "Recording started"
 msgstr "録音開始"
 
-#: art_timelapse/gui.py:741
+#: gui.py:772
 msgid "Recording stopped"
 msgstr "録音停止"
 
-#: art_timelapse/gui.py:742
-msgid "Stop Recording"
-msgstr "録音を停止する"
-
-#: art_timelapse/gui.py:744
+#: gui.py:775
 msgid "Exporting started"
 msgstr "エクスポートを開始しました"
 
-#: art_timelapse/gui.py:745
+#: gui.py:776
 msgid "Exporting stopped"
 msgstr "エクスポートが停止されました"
 
-#: art_timelapse/gui.py:746
-msgid "Stop Exporting"
-msgstr "エクスポートの停止"
-
-#: art_timelapse/gui.py:770
+#: gui.py:801
 msgid "No valid SAI process found"
 msgstr "有効なSAIプロセスが見つかりません"
 
-#: art_timelapse/gui.py:775
+#: gui.py:806
 msgid "There are no canvases open"
 msgstr "開いているキャンバスがありません"
 
-#: art_timelapse/gui.py:814
+#: gui.py:845
 msgid "Export cancelled"
 msgstr "エクスポートがキャンセルされました"
 
-#: art_timelapse/sai.py:343
-msgid "No SAI process detected."
-msgstr "SAIプロセスが検出されませんでした。"
-
-#: art_timelapse/timelapse.py:104
+#: timelapse.py:167
 msgid ""
 "Click and drag on a subwindow to start tracking an area. Right click to "
 "cancel."
@@ -326,59 +347,62 @@ msgstr ""
 "サブウィンドウをクリックしてドラッグし、エリアの追跡を開始します。右クリック"
 "してキャンセルします。"
 
-#: art_timelapse/timelapse.py:110
+#: timelapse.py:173
 msgid "Click on a subwindow to start tracking. Right click to cancel."
 msgstr ""
 "サブウィンドウをクリックして追跡を開始します。右クリックしてキャンセルしま"
 "す。"
 
-#: art_timelapse/timelapse.py:151
+#: timelapse.py:214
 msgid "Window grab cancelled"
 msgstr "ウィンドウのグラブがキャンセルされました"
 
-#: art_timelapse/timelapse.py:201
+#: timelapse.py:264
 msgid "Could not find window automatically"
 msgstr "ウィンドウを自動的に見つけることができませんでした"
 
-#: art_timelapse/timelapse.py:213
+#: timelapse.py:276
 msgid "Writing to video:"
 msgstr "ビデオへの書き込み："
 
-#: art_timelapse/timelapse.py:268
+#: timelapse.py:327
 msgid "Writing to frames folder:"
 msgstr "フレームフォルダーへの書き込み："
 
-#: art_timelapse/timelapse.py:302
+#: timelapse.py:362
 msgid "Reading from frames folder:"
 msgstr "フレームフォルダーからの読み取り："
 
-#: art_timelapse/timelapse.py:416
+#: timelapse.py:476
 msgid "Window lost:"
 msgstr "ウィンドウが失われました："
 
-#: art_timelapse/timelapse.py:420
+#: timelapse.py:480
 msgid "Tracking input for window:"
 msgstr "ウィンドウの入力の追跡："
 
-#: art_timelapse/timelapse.py:428
+#: timelapse.py:488
 msgid "Stopped tracking window:"
 msgstr "停止した追跡ウィンドウ："
 
-#: art_timelapse/timelapse.py:444
+#: timelapse.py:504
 msgid "Tracking file:"
 msgstr "追跡ファイル："
 
-#: art_timelapse/timelapse.py:451
+#: timelapse.py:511
 msgid "Stopped tracking file:"
 msgstr "追跡を停止したファイル："
 
-#: art_timelapse/timelapse.py:468
+#: timelapse.py:536
 msgid "No appropriate frame data found:"
 msgstr "適切なフレーム データが見つかりません："
 
-#: art_timelapse/timelapse.py:498
+#: timelapse.py:571
 msgid "Canvas lost, stopping now"
 msgstr "キャンバスが失われました。現在停止中です"
+
+#~ msgid "No SAI process detected."
+#~ msgstr "SAIプロセスが検出されませんでした。"
 
 #~ msgid "Run as a CLI app instead of a GUI app."
 #~ msgstr "GUI アプリではなく CLI アプリとして実行します。"

@@ -52,15 +52,18 @@ class RollingAverage:
         self.put(value)
         return self.get()
 
-class DefaultIntVar(ttk.IntVar):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+class DefaultGet:
     def get(self):
         try:
             return super().get()
         except:
-            return 0
+            return self._default
+
+class DefaultIntVar(DefaultGet, ttk.IntVar):
+    pass
+
+class DefaultDoubleVar(DefaultGet, ttk.DoubleVar):
+    pass
 
 class LocalizedStringVar(ttk.StringVar):
     def __init__(self, text, *args, **kwargs):
@@ -200,17 +203,27 @@ class CheckbuttonLabelRow(LabelRow):
         self.checkbutton = ttk.Checkbutton(self, variable=variable)
         self.checkbutton.pack(side=ttkc.LEFT)
 
-def check_digit(p):
-    return str(p).isdigit() or str(p) == ''
-
 class EntryLabelRow(LabelRow):
-    def __init__(self, master, label, numbers=False, button_label=None, textvariable=None):
+    def __init__(self, master, label, number_type=None, button_label=None, textvariable=None):
         super().__init__(master, label)
         self.textvariable = textvariable or ttk.StringVar()
         kwargs = {}
-        if numbers:
+        if number_type is None:
+            if isinstance(self.textvariable, ttk.IntVar):
+                number_type = int
+            elif isinstance(self.textvariable, ttk.DoubleVar):
+                number_type = float
+        if number_type:
+            def check_number(p):
+                if str(p) == '':
+                    return True
+                try:
+                    number_type(p)
+                    return True
+                except:
+                    return False
             kwargs['validate'] = ttkc.ALL
-            proc = self.register(check_digit)
+            proc = self.register(check_number)
             kwargs['validatecommand'] = (proc, '%P')
         kwargs['textvariable'] = self.textvariable
         self.entry = ttk.Entry(self, **kwargs)
@@ -394,11 +407,11 @@ def make_frames_path_field(master, textvariable=None):
     ToolTip(frames_path, _('Folder where video recording cuts are saved.'))
 
 def make_auto_split_field(master, textvariable=None):
-    auto_split = EntryLabelRow(master, _('Auto split count'), numbers=True, textvariable=textvariable)
+    auto_split = EntryLabelRow(master, _('Auto split count'), textvariable=textvariable)
     ToolTip(auto_split, _('Automatically split video output after this many frames. Enter 0 or leave blank to disable. This is useful to mitigate the chance of missing or corrupt video data after a system crash.'))
 
 def make_image_size_limit_box(master, textvariable=None):
-    frame = EntryLabelRow(master, _('Image size limit (px)'), numbers=True, textvariable=textvariable)
+    frame = EntryLabelRow(master, _('Image size limit (px)'), textvariable=textvariable)
     ToolTip(frame, _('Captured images will be resized to this if larger than this value.'))
     return frame
 
@@ -436,7 +449,7 @@ class Settings:
         int: DefaultIntVar,
         str: ttk.StringVar,
         bool: ttk.BooleanVar,
-        float: ttk.DoubleVar,
+        float: DefaultDoubleVar,
     }
 
     def __init__(self, file_name):
@@ -451,8 +464,13 @@ class Settings:
 
     def get_var(self, key, default):
         if key in self.vars:
-            return self.vars.get(key)
-        var = Settings.var_types.get(type(default), ttk.Variable)(value=default)
+            var = self.vars.get(key)
+            if type(var.get()) == type(default):
+                return var
+            else:
+                var = Settings.var_types.get(type(default), ttk.Variable)(value=var.get())
+        else:
+            var = Settings.var_types.get(type(default), ttk.Variable)(value=default)
         def save(*_args):
             self.data[key] = var.get()
         var.trace_add('write', save)
@@ -505,8 +523,10 @@ class App(asynctk.AsyncTk):
         self.screen_click_button_var = StackStringVar(value=LocalizedStringVar(_('Click window grab and start recording')))
         self.screen_grab_button_var = StackStringVar(value=LocalizedStringVar(_('Drag area grab and start recording')))
         self.export_file_var = self.settings.get_var('export_file_var', '')
-        self.export_time_limit_var = self.settings.get_var('export_time_limit', 60)
-        self.export_fps_var = self.settings.get_var('export_fps', 30)
+        self.export_time_limit_var = self.settings.get_var('export_time_limit', 60.0)
+        self.export_fps_var = self.settings.get_var('export_fps', 30.0)
+        self.export_preview_last_frame_first_var = self.settings.get_var('export_preview_last_frame', True)
+        self.export_preview_duration = self.settings.get_var('export_preview_duration', 0.0)
         self.export_use_recording_var = self.settings.get_var('export_user_recording', True)
         self.selected_tab_var = self.settings.get_var('selected_tab', 0)
         self.selected_tab_thread_safe = 0
@@ -546,9 +566,11 @@ class App(asynctk.AsyncTk):
         export_frame = make_notebook_frame(notebook, _('Export Video'))
         make_frames_path_field(export_frame, self.frames_file_var)
         export_file_entry = FilePickerEntry(export_frame, _('Export file'), mode='save', textvariable=self.export_file_var)
-        export_time_limit_entry = EntryLabelRow(export_frame, _('Export time limit'), numbers=True, textvariable=self.export_time_limit_var)
-        export_fps_entry = EntryLabelRow(export_frame, _('Export FPS'), numbers=True, textvariable=self.export_fps_var)
-        export_user_reocrding = CheckbuttonLabelRow(export_frame, _('Use recording video type'), variable=self.export_use_recording_var)
+        export_time_limit_entry = EntryLabelRow(export_frame, _('Export time limit'), textvariable=self.export_time_limit_var)
+        export_fps_entry = EntryLabelRow(export_frame, _('Export FPS'), textvariable=self.export_fps_var)
+        export_preview_last_frame_first = CheckbuttonLabelRow(export_frame, _('Preview last frame first'), variable=self.export_preview_last_frame_first_var)
+        export_preview_duration = EntryLabelRow(export_frame, _('Preview duration'), textvariable=self.export_preview_duration)
+        export_user_recording = CheckbuttonLabelRow(export_frame, _('Use recording video type'), variable=self.export_use_recording_var)
         self.export_config_frame = VideoConfigFrame(export_frame, export_vars)
         self.export_progress = ProgressRow(export_frame, font=fixed_font)
 
@@ -567,7 +589,9 @@ class App(asynctk.AsyncTk):
         ToolTip(export_file_entry, _('Path to the video file to export to. Extension is determined by video type. Leave blank to automatically use the frames path.'))
         ToolTip(export_time_limit_entry, _('Maximum time the exported video should be. Enter 0 or leave blank for no time limit.'))
         ToolTip(export_fps_entry, _('Set the FPS of the exported video. 30 is a common default. Lower FPS is better for PSD recording exports (like 5 FPS).'))
-        ToolTip(export_user_reocrding, _('Use the same video options as the recording tabs and ignore the below settings.'))
+        ToolTip(export_preview_last_frame_first, _('Display the last frame at the beginning of the exported video, like a preview of the finished timelapse.'))
+        ToolTip(export_preview_duration, _('The duration of the preview frame in seconds. Enter 0 or leave blank to display for only a single frame. This adds on to the final export duration.'))
+        ToolTip(export_user_recording, _('Use the same video options as the recording tabs and ignore the below settings.'))
 
         meta_config = ttk.Frame(self)
         meta_config.pack(fill=ttkc.X)
@@ -828,6 +852,8 @@ class App(asynctk.AsyncTk):
     async def export(self):
         frames_path = self.frames_file_var.get()
         export_time_limit = self.export_time_limit_var.get()
+        export_preview_last_frame = self.export_preview_last_frame_first_var.get()
+        export_preview_duration = self.export_preview_duration.get()
         export_fps = self.export_fps_var.get()
         if self.export_use_recording_var.get():
             container, codec = self.sai_recording_frame.get_format()
@@ -839,13 +865,19 @@ class App(asynctk.AsyncTk):
                 yield it
                 if not self.operation_thread_running:
                     logging.info(tr(_('Export cancelled')))
-                    break
+                    raise ExportCancelled()
         self.operation_thread_running = True
         # Export can have long CPU-bound sections, so run it on another thread.
-        await asyncio.to_thread(timelapse.export, progress_kill_check, export_time_limit, export_fps, frames_path, container, codec, output_path)
+        try:
+            await asyncio.to_thread(timelapse.export, progress_kill_check, export_time_limit, export_preview_last_frame, export_preview_duration, export_fps, frames_path, container, codec, output_path)
+        except ExportCancelled:
+            pass
 
     def report_callback_exception(self, exc_type, exc_value, exc_tb):
         logging.exception(''.join(traceback.format_exception(exc_type, exc_value, exc_tb)))
+
+class ExportCancelled(Exception):
+    pass
 
 async def async_main():
     await App().async_main_loop()

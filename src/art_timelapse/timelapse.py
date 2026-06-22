@@ -511,7 +511,7 @@ class FileTracker(FileSystemEventHandler, EventTrackerBase):
         logging.info(_('Stopped tracking file:') + f' {self.target_file}')
 
 # Get frame indices achieve a specific maximum video length.
-def get_frame_indices(export_time_limit:int, frame_count:int, fps:int):
+def get_frame_indices(export_time_limit:float, frame_count:int, fps:int):
     if export_time_limit > 0:
         target_frames = int(export_time_limit * fps)
         if frame_count > target_frames:
@@ -519,7 +519,16 @@ def get_frame_indices(export_time_limit:int, frame_count:int, fps:int):
             return target_frames, (round(i * nth) for i in range(target_frames))
     return frame_count, range(frame_count)
 
-def export(progress_iter:function, export_time_limit:int, fps:int, frames:Path, container:str, codec:str, output_path=''):
+def write_preview_frames(progress_iter:function, reader:VideoSequenceReader, writer:VideoSequenceWriter, preview_duration:float, fps:int, reuse_arrays:dict):
+    last_frame = reader.get_last_frame()
+    if preview_duration == 0:
+        writer.write(last_frame, reuse_arrays=reuse_arrays)
+    else:
+        frame_count = int(preview_duration * fps)
+        for _ in progress_iter(range(frame_count), frame_count, unit='frames'):
+            writer.write(last_frame, reuse_arrays=reuse_arrays)
+
+def export(progress_iter:function, export_time_limit:float, preview_last_frame:bool, preview_duration:float, fps:int, frames:Path, container:str, codec:str, output_path=''):
     frames = expand_path(frames)
     if output_path == '':
         output_path = frames
@@ -532,7 +541,8 @@ def export(progress_iter:function, export_time_limit:int, fps:int, frames:Path, 
         index = 0
         reuse_arrays = {}
         with VideoWriter(output_path, reader.size, container, codec, fps=fps, log=True) as writer:
-            writer.write(reader.get_last_frame(), reuse_arrays=reuse_arrays)
+            if preview_last_frame:
+                write_preview_frames(progress_iter, reader, writer, preview_duration, fps, reuse_arrays)
             for frame in progress_iter(frame_indices, total_frames, unit='frames'):
                 while index < frame:
                     reader.read()
