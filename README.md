@@ -1,14 +1,12 @@
 # Art Timelapse
 This program lets you create efficient timelapses of your drawing.
 
+https://github.com/user-attachments/assets/a3ae2f09-2687-4c00-bf6e-b82af2c3b9fc
+
 <img width="637" height="727" alt="image" src="https://github.com/user-attachments/assets/c87acd1d-f517-454a-a4f2-7e5edc1e9e9e" />
 
 ### Why
-I made this program to be used primarily with Paint Tool SAIv2, (which does not have any builtin timelapse tool), however it can be used with any other program.
-Previously I was reluctant to record drawing videos with OBS Studio, because I would have to do post-processing on every video:
-Cutting dead air from the videos; Concatenating separate recordings together; Speeding up the resulting video to make a timelapse.
-While it is possible to mitigate these issues when using OBS Studio, I wanted a more accurate solution that works sort of like Clip Studio's timelapse feature.
-By recording the end of each stroke of a drawing, you get the largest amount of information about the timelapse without any redundancy, which can end up creating compact videos with minimal editing.
+I made this program to be used primarily with Paint Tool SAIv2, (which does not have any builtin timelapse tool), however it can be used with any other program to do screen recording, or PSD file recording. This program can read image data from a running SAI process, so it can create full canvas timelapses without any flipping, zooming, rotation, etc. much like how Clip Studio's timelapses work.
 
 ### Corrupt video recovery after system crash
 If you have a system crash or power failure while you were recording, the resulting video may be truncated and have missing header information.
@@ -87,8 +85,6 @@ Clipboard will also probably not work between the host and Xwayland windows. I d
 
 ### Todo
 - Linux AppImage
-
-https://github.com/cromachina/art-timelapse/assets/82557197/3e10a9d4-d855-4e91-8070-8f21aa9c350c
 
 ### Dev notes:
 #### Procedure for locating the canvas storage pointer in a different SAIv2 version.
