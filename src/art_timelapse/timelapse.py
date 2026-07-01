@@ -87,7 +87,7 @@ def image_thumbnail(image:np.ndarray, size:Size, dst=None, interpolation=cv2.INT
     if image_size.width <= size.width and image_size.height <= size.height:
         return image
     fit_size = get_fit_size(image_size, size)
-    if dst is not None and get_size(dst) != size:
+    if dst is not None and get_size(dst) != fit_size:
         dst = None
     return cv2.resize(image, fit_size, dst=dst, interpolation=interpolation)
 
