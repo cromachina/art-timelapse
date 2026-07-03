@@ -678,7 +678,7 @@ class App(asynctk.AsyncTk):
             logging.warning(tr(_('To work around this, you can run this tool and your desired art program inside of Xwayland, see README.md.')))
 
         logging.info(tr(_('Supported SAI versions:')))
-        for api in sorted(sai.sai_api_lookup.values(), key=lambda x: x.version_name):
+        for api in sai.sai_api_lookup.values():
             logging.info(f'  {api.version_name}')
 
     def cleanup(self):
