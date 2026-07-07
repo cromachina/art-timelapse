@@ -308,7 +308,7 @@ class SAIv2_API_2026_07_02b(SAIv2_API_Base):
     session_offset = 0x32eb20
 
 @register_sai_api
-class SAIv2_API_2026_07_02b_alpha(SAIv2_API_Base):
+class SAIv2_API_2026_07_06_alpha(SAIv2_API_Base):
     version_name = 'SAI Ver.2 (64bit) Alpha.2026.07.06'
     exe_hash = 'a20936b506674ed0f867e1ede8875ffa'
     session_offset = 0x46b980
