@@ -582,7 +582,7 @@ async def screen_capture(window:pywinctl.Window, bbox:Rect, frames:Path, contain
     with VideoSequenceWriter(frames, container, codec, auto_split_count) as writer, InputTracker(window, bbox) as tracker:
         async for _event in tracker.get_event_stream():
             img = grab_numpy(sct, window.rect if bbox is None else bbox)
-            writer.write(img, cvt_color=True)
+            writer.write(img)
 
 async def psd_capture(psd_file:Path, image_size_limit:int, frames:Path, container:str, codec:str, auto_split_count:int):
     psd_file = expand_path(psd_file)
