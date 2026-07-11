@@ -9,7 +9,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'art-timelapse'
-version = '3.4.1'
+version = '3.5.0'
 authors = [
     { name = 'cromachina' }
 ]
