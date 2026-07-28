@@ -334,13 +334,20 @@ class ComboboxLabelRow(LabelRow):
 
 class ToolTip(tooltip.ToolTip):
     def __init__(self, widget, text, *args, **kwargs):
-        super().__init__(widget, text, *args, **kwargs)
+        super().__init__(widget, *args, text=text, **kwargs)
         self.textvariable = LocalizedStringVar(text)
         self.textvariable.trace_add('write', self.update_text)
         self.update_text()
 
     def update_text(self, *_args):
         self.text = self.textvariable.get()
+
+def add_tooltips(widget, text):
+    if not isinstance(widget, ttk.Frame):
+        ToolTip(widget, text)
+    else:
+        for child in widget.winfo_children():
+            add_tooltips(child, text)
 
 class VideoConfigFrame(ttk.Frame):
     def __init__(self, master, shared_vars):
@@ -357,11 +364,11 @@ class VideoConfigFrame(ttk.Frame):
         self.custom_codec_var = shared_vars['custom_codec_var']
         self.button_text = shared_vars['button_text']
         self.video_type_box = ComboboxLabelRow(self, _('Video type'), values=[t[0] for t in self.video_types], index_variable=self.video_type_var)
-        ToolTip(self.video_type_box, _('Useful container/codec presets.'))
+        add_tooltips(self.video_type_box, _('Useful container/codec presets.'))
         self.custom_container_entry = EntryLabelRow(self, _('Custom container'), textvariable=self.custom_container_var)
-        ToolTip(self.custom_container_entry, _('If you want to use a container that is not listed above, whatever is supported by OpenCV and FFMPEG.'))
+        add_tooltips(self.custom_container_entry, _('If you want to use a container that is not listed above, whatever is supported by OpenCV and FFMPEG.'))
         self.custom_codec_entry = EntryLabelRow(self, _('Custom codec'), textvariable=self.custom_codec_var)
-        ToolTip(self.custom_codec_entry, _('If you want to use a codec that is not listed above, whatever is supported by OpenCV and FFMPEG.'))
+        add_tooltips(self.custom_codec_entry, _('If you want to use a codec that is not listed above, whatever is supported by OpenCV and FFMPEG.'))
         self.button = ButtonRow(self, textvariable=self.button_text)
 
     def get_format(self):
@@ -404,15 +411,15 @@ class AsyncWidgetLogger(logging.Handler):
 
 def make_frames_path_field(master, textvariable=None):
     frames_path = FilePickerEntry(master, _('Frames path'), mode='dir', textvariable=textvariable)
-    ToolTip(frames_path, _('Folder where video recording cuts are saved.'))
+    add_tooltips(frames_path, _('Folder where video recording cuts are saved.'))
 
 def make_auto_split_field(master, textvariable=None):
     auto_split = EntryLabelRow(master, _('Auto split count'), textvariable=textvariable)
-    ToolTip(auto_split, _('Automatically split video output after this many frames. Enter 0 or leave blank to disable. This is useful to mitigate the chance of missing or corrupt video data after a system crash.'))
+    add_tooltips(auto_split, _('Automatically split video output after this many frames. Enter 0 or leave blank to disable. This is useful to mitigate the chance of missing or corrupt video data after a system crash.'))
 
 def make_image_size_limit_box(master, textvariable=None):
     frame = EntryLabelRow(master, _('Image size limit (px)'), textvariable=textvariable)
-    ToolTip(frame, _('Captured images will be resized to this if larger than this value.'))
+    add_tooltips(frame, _('Captured images will be resized to this if larger than this value.'))
     return frame
 
 def make_notebook_frame(notebook:ttk.Notebook, text:str):
@@ -530,7 +537,7 @@ class App(asynctk.AsyncTk):
         self.export_use_recording_var = self.settings.get_var('export_user_recording', True)
         self.selected_tab_var = self.settings.get_var('selected_tab', 0)
         self.selected_tab_thread_safe = 0
-        meta_config_theme_var = self.settings.get_var('theme', 'darkly')
+        meta_config_theme_var = self.settings.get_var('theme', 'bootstrap-dark')
         meta_config_lang_var = self.settings.get_var('lang', 'en')
 
         #########################################################
@@ -581,17 +588,17 @@ class App(asynctk.AsyncTk):
         self.stop_recording_label = LocalizedStringVar(_('Stop Recording'))
         self.stop_exporting_label = LocalizedStringVar(_('Stop Exporting'))
 
-        ToolTip(self.sai_version_override_box, _('If the running SAI version cannot be detected, the selected override will be used.'))
-        ToolTip(self.sai_canvas_box, _('Select which open SAI canvas to record from.'))
-        ToolTip(psd_file_entry, _('PSD/PSB file to record from as it is saved to disk.'))
-        ToolTip(self.screen_click_button, _('Captures the subwindow that was clicked on. Automatically adjusts capture size to the subwindow.'))
-        ToolTip(self.screen_grab_button, _('Captures a fixed area of the subwindow. Drag a rectangle like a screenshot tool.'))
-        ToolTip(export_file_entry, _('Path to the video file to export to. Extension is determined by video type. Leave blank to automatically use the frames path.'))
-        ToolTip(export_time_limit_entry, _('Maximum time the exported video should be. Enter 0 or leave blank for no time limit.'))
-        ToolTip(export_fps_entry, _('Set the FPS of the exported video. 30 is a common default. Lower FPS is better for PSD recording exports (like 5 FPS).'))
-        ToolTip(export_preview_last_frame_first, _('Display the last frame at the beginning of the exported video, like a preview of the finished timelapse.'))
-        ToolTip(export_preview_duration, _('The duration of the preview frame in seconds. Enter 0 or leave blank to display for only a single frame. This adds on to the final export duration.'))
-        ToolTip(export_user_recording, _('Use the same video options as the recording tabs and ignore the below settings.'))
+        add_tooltips(self.sai_version_override_box, _('If the running SAI version cannot be detected, the selected override will be used.'))
+        add_tooltips(self.sai_canvas_box, _('Select which open SAI canvas to record from.'))
+        add_tooltips(psd_file_entry, _('PSD/PSB file to record from as it is saved to disk.'))
+        add_tooltips(self.screen_click_button, _('Captures the subwindow that was clicked on. Automatically adjusts capture size to the subwindow.'))
+        add_tooltips(self.screen_grab_button, _('Captures a fixed area of the subwindow. Drag a rectangle like a screenshot tool.'))
+        add_tooltips(export_file_entry, _('Path to the video file to export to. Extension is determined by video type. Leave blank to automatically use the frames path.'))
+        add_tooltips(export_time_limit_entry, _('Maximum time the exported video should be. Enter 0 or leave blank for no time limit.'))
+        add_tooltips(export_fps_entry, _('Set the FPS of the exported video. 30 is a common default. Lower FPS is better for PSD recording exports (like 5 FPS).'))
+        add_tooltips(export_preview_last_frame_first, _('Display the last frame at the beginning of the exported video, like a preview of the finished timelapse.'))
+        add_tooltips(export_preview_duration, _('The duration of the preview frame in seconds. Enter 0 or leave blank to display for only a single frame. This adds on to the final export duration.'))
+        add_tooltips(export_user_recording, _('Use the same video options as the recording tabs and ignore the below settings.'))
 
         meta_config = ttk.Frame(self)
         meta_config.pack(fill=ttkc.X)
