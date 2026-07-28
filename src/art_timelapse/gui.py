@@ -606,7 +606,7 @@ class App(asynctk.AsyncTk):
         ttk.Label(meta_config, textvariable=theme_label).pack(side=ttkc.LEFT)
         meta_config_theme_box = ttk.Combobox(meta_config, state=ttkc.READONLY)
         meta_config_theme_box.pack(side=ttkc.LEFT)
-        meta_config_theme_box.config(values=ttk.Style().theme_names(), textvariable=meta_config_theme_var)
+        meta_config_theme_box.config(values=self.theme_names(), textvariable=meta_config_theme_var)
 
         meta_config_lang_box = ttk.Combobox(meta_config, state=ttkc.READONLY)
         meta_config_lang_box.pack(side=ttkc.RIGHT)
@@ -649,7 +649,7 @@ class App(asynctk.AsyncTk):
                 self.after(10, hack_fix_size)
         self.after(10, hack_fix_size)
 
-        meta_config_theme_var.trace_add('write', lambda *_: ttk.Style(meta_config_theme_var.get()))
+        meta_config_theme_var.trace_add('write', lambda *_: self.theme_use(meta_config_theme_var.get()))
         meta_config_theme_var.set(meta_config_theme_var.get())
 
         self.sai_proc = None
