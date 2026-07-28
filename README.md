@@ -3,7 +3,7 @@ This program lets you create efficient timelapses of your drawing.
 
 https://github.com/user-attachments/assets/a3ae2f09-2687-4c00-bf6e-b82af2c3b9fc
 
-<img width="637" height="727" alt="image" src="https://github.com/user-attachments/assets/c87acd1d-f517-454a-a4f2-7e5edc1e9e9e" />
+<img width="666" height="809" alt="image" src="https://github.com/user-attachments/assets/d7fb67f8-83b0-4bad-938b-005126f962e4" />
 
 ### Why
 I made this program to be used primarily with Paint Tool SAIv2, (which does not have any builtin timelapse tool), however it can be used with any other program to do screen recording, or PSD file recording. This program can read image data from a running SAI process, so it can create full canvas timelapses without any flipping, zooming, rotation, etc. much like how Clip Studio's timelapses work.
