@@ -308,10 +308,10 @@ class SAIv2_API_2026_07_02b(SAIv2_API_Base):
     session_offset = 0x32eb20
 
 @register_sai_api
-class SAIv2_API_2026_07_12_alpha(SAIv2_API_Base):
-    version_name = 'SAI Ver.2 (64bit) Alpha.2026.07.12'
-    exe_hash = 'e7b5ac252733a20a14e192824aa9e768'
-    session_offset = 0x46d980
+class SAIv2_API_2026_07_27_alpha(SAIv2_API_Base):
+    version_name = 'SAI Ver.2 (64bit) Alpha.2026.07.27'
+    exe_hash = '96b7a5b218b6953647405874528936e1'
+    session_offset = 0x471380
 
     class SAICanvas(SAICanvasBase):
         pass
@@ -324,9 +324,9 @@ class SAIv2_API_2026_07_12_alpha(SAIv2_API_Base):
             # A canvas ID was here, but seems to be removed now.
             (0x028, 'width', ctypes.c_int32),
             (0x02c, 'height', ctypes.c_int32),
+            (0x048, 'tile_maps', RPOINTER(RPOINTER(SAIv2_API_Base.SAICanvasTileMap)) * SAIv2_API_Base.map_count),
             (0x180, 'tile_count_x', ctypes.c_uint32),
             (0x184, 'tile_count_y', ctypes.c_uint32),
-            (0x048, 'tile_maps', RPOINTER(RPOINTER(SAIv2_API_Base.SAICanvasTileMap)) * SAIv2_API_Base.map_count),
             (0x8f8, 'name', ctypes.c_uint16 * 0x104),
             (0xb00, 'short_path', ctypes.c_uint16 * 0x104)
         ])
