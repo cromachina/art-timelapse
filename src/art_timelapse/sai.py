@@ -308,9 +308,9 @@ class SAIv2_API_2026_07_02b(SAIv2_API_Base):
     session_offset = 0x32eb20
 
 @register_sai_api
-class SAIv2_API_2026_07_27_alpha(SAIv2_API_Base):
-    version_name = 'SAI Ver.2 (64bit) Alpha.2026.07.27'
-    exe_hash = '96b7a5b218b6953647405874528936e1'
+class SAIv2_API_2026_07_30_alpha(SAIv2_API_Base):
+    version_name = 'SAI Ver.2 (64bit) Alpha.2026.07.30'
+    exe_hash = '92c8a8ecf424c95a42b413ddcfd2b136'
     session_offset = 0x471380
 
     class SAICanvas(SAICanvasBase):
