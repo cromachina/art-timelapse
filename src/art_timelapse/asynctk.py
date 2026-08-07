@@ -1,13 +1,27 @@
 import asyncio
-import tkinter as tk
+import time
+import contextlib
 import ttkbootstrap as ttk
+
+@contextlib.asynccontextmanager
+async def sync_interval(interval):
+    start = time.perf_counter()
+    try:
+        yield
+    except Exception as ex:
+        raise ex
+    else:
+        delta = time.perf_counter() - start
+        sleep_time = interval - delta
+        if sleep_time > 0:
+            await asyncio.sleep(sleep_time)
 
 class AsyncTk(ttk.App):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.protocol('WM_DELETE_WINDOW', self.stop)
         self.running = False
-        self.sleep_time = 0.01
+        self.update_interval = 1.0 / 60
 
     def cleanup(self):
         pass
@@ -19,8 +33,9 @@ class AsyncTk(ttk.App):
     async def async_main_loop(self):
         self.running = True
         while self.running:
-            self.update()
-            await asyncio.sleep(self.sleep_time)
+            async with sync_interval(self.update_interval):
+                self.update()
+                await asyncio.sleep(0)
 
 class AsyncTkCallback:
     tasks = set()
