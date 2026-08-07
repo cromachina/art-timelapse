@@ -139,49 +139,55 @@ class WindowGrabber(tk.Toplevel):
             self.root = None
         self.event = asyncio.Event()
         super().__init__(*args, **kwargs)
+        if drag_area:
+            logging.info(_('Click and drag on a subwindow to start tracking an area. Right click to cancel.'))
+        else:
+            logging.info(_('Click on a subwindow to start tracking. Right click to cancel.'))
+
         self.drag_area = drag_area
         self.overrideredirect(True)
         mon = sct.monitors[0]
-        self.screen = grab(sct, mon)
         self.sw = mon['width']
         self.sh = mon['height']
         self.geometry(f'{self.sw}x{self.sh}+0+0')
         self.attributes('-topmost', True)
-        self.screen = ImageTk.PhotoImage(self.screen, master=self)
         self.canvas = tk.Canvas(self, width=self.sw, height=self.sh, highlightthickness=0)
         self.canvas.place(x=0, y=0)
-        self.canvas.create_image((0, 0), anchor=tk.NW, image=self.screen)
-        self.overlay = self.make_rect(self.sw, self.sh, 'gray12')
-        self.top_rect = self.make_rect()
-        self.left_rect = self.make_rect()
-        self.right_rect = self.make_rect()
-        self.bottom_rect = self.make_rect()
-        self.outline = self.canvas.create_rectangle(0, 0, 0, 0, outline='#7777ff', fill='')
         self.pos1 = None
         self.pos2 = None
         self.window = None
         self.cancelled = False
-        self.lift()
-
-        if drag_area:
-            logging.info(_('Click and drag on a subwindow to start tracking an area. Right click to cancel.'))
-            self.bind('<Motion>', self.drag_motion)
-            self.bind('<ButtonPress-1>', self.drag_clicked)
-            self.bind('<ButtonRelease-1>', self.released)
-            self.bind('<ButtonPress-3>', self.set_cancelled)
-        else:
-            logging.info(_('Click on a subwindow to start tracking. Right click to cancel.'))
-            self.canvas.delete(self.overlay)
-            if 'win' in sys.platform:
-                self.bind('<Motion>', self.scan_motion_win)
+        self.withdraw()
+        def deferred():
+            self.screen = grab(sct, mon)
+            self.screen = ImageTk.PhotoImage(self.screen, master=self)
+            self.canvas.create_image((0, 0), anchor=tk.NW, image=self.screen)
+            self.overlay = self.make_rect(self.sw, self.sh, 'gray12')
+            self.top_rect = self.make_rect()
+            self.left_rect = self.make_rect()
+            self.right_rect = self.make_rect()
+            self.bottom_rect = self.make_rect()
+            self.outline = self.canvas.create_rectangle(0, 0, 0, 0, outline='#7777ff', fill='')
+            self.deiconify()
+            self.lift()
+            if drag_area:
+                self.bind('<Motion>', self.drag_motion)
+                self.bind('<ButtonPress-1>', self.drag_clicked)
+                self.bind('<ButtonRelease-1>', self.released)
+                self.bind('<ButtonPress-3>', self.set_cancelled)
             else:
-                self.bind('<Motion>', self.scan_motion)
-            self.bind('<ButtonPress-1>', self.scan_clicked)
-            self.bind('<ButtonPress-3>', self.set_cancelled)
-            e = tk.Event()
-            e.x = self.winfo_pointerx()
-            e.y = self.winfo_pointery()
-            self.scan_motion(e)
+                self.canvas.delete(self.overlay)
+                if 'win' in sys.platform:
+                    self.bind('<Motion>', self.scan_motion_win)
+                else:
+                    self.bind('<Motion>', self.scan_motion)
+                self.bind('<ButtonPress-1>', self.scan_clicked)
+                self.bind('<ButtonPress-3>', self.set_cancelled)
+                e = tk.Event()
+                e.x = self.winfo_pointerx()
+                e.y = self.winfo_pointery()
+                self.scan_motion(e)
+        self.after(50, deferred)
 
     def make_rect(self, w=0, h=0, stipple='gray50'):
         return self.canvas.create_rectangle(0, 0, w, h, outline='', fill='black', stipple=stipple)
@@ -204,6 +210,7 @@ class WindowGrabber(tk.Toplevel):
         self.drag_motion(event)
 
     def released(self, _event):
+        self.withdraw()
         self.destroy()
         if self.root is not None:
             self.root.stop()
