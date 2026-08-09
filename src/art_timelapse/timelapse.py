@@ -177,7 +177,7 @@ class WindowGrabber(tk.Toplevel):
                 self.bind('<ButtonPress-3>', self.set_cancelled)
             else:
                 self.canvas.delete(self.overlay)
-                if 'win' in sys.platform:
+                if sys.platform == 'win32':
                     self.bind('<Motion>', self.scan_motion_win)
                 else:
                     self.bind('<Motion>', self.scan_motion)

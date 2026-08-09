@@ -346,7 +346,7 @@ def find_running_sai_pid() -> int | None:
 
 def get_exe_path(proc:AbstractProcess) -> str:
     psproc = psutil.Process(proc.pid)
-    if 'win' in sys.platform:
+    if sys.platform == 'win32':
         return psproc.exe()
     else: # linux
         return get_region_data_by_name(proc, psproc.name())[0]
