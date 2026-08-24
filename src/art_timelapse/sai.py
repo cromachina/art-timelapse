@@ -1,15 +1,11 @@
 import ctypes
 import hashlib
 import sys
-from functools import reduce
-from operator import mul
 
 import psutil
 from PyMemoryEditor import OpenProcess
 from PyMemoryEditor.process import AbstractProcess
 import numpy as np
-
-from . import _
 
 def trim_null(data):
     if '\0' in data:
@@ -118,6 +114,10 @@ def offset_fields(fields):
         current_offset += ctypes.sizeof(type)
     return result
 
+class StructureBase(ctypes.Structure):
+    _pack_ = 1
+    _layout_ = 'ms'
+
 class SAI_API_Base:
     def __init__(self, proc:AbstractProcess):
         self.proc = proc
@@ -141,10 +141,7 @@ class SAI_API_Base:
     def check_if_canvas_exists(self, canvas) -> bool:
         return any((c._self_ptr == canvas._self_ptr for c in self.get_canvas_list()))
 
-class SAICanvasBase(ctypes.Structure):
-    _pack_ = 1
-    _layout_ = 'ms'
-
+class SAICanvasBase(StructureBase):
     def get_name(self):
         return from_wide_str(self.name)
 
@@ -155,9 +152,7 @@ class SAIv1_API_Base(SAI_API_Base):
     process_name = 'sai.exe'
     map_count = 1
 
-    class SAIPixelHeap(ctypes.Structure):
-        _pack_ = 1
-        _layout_ = 'ms'
+    class SAIPixelHeap(StructureBase):
         _fields_ = offset_fields([
             (0x4, 'stride_x', ctypes.c_int32),
             (0x8, 'stride_y', ctypes.c_int32),
@@ -180,9 +175,8 @@ class SAIv1_API_Base(SAI_API_Base):
             (0x5d8, 'name', ctypes.c_char * 0x108),
         ])
 
-    class SAISession(ctypes.Structure):
-        _pack_ = 1
-        _layout_ = 'ms'
+    class SAISession(StructureBase):
+        pass
 
     SAISession._fields_ = offset_fields([
         (0x4c, 'canvas_list', RPOINTER32(SAICanvas)),
@@ -226,10 +220,7 @@ class SAIv2_API_Base(SAI_API_Base):
     process_name = 'sai2.exe'
     map_count = 0xb
 
-    class SAICanvasTileMap(ctypes.Structure):
-        _pack_ = 1
-        _layout_ = 'ms'
-
+    class SAICanvasTileMap(StructureBase):
         _fields_ = offset_fields([
             # (0x00, 'allocator', RPOINTER(WINFUNCTYPE(None, int64_t, int512_t, int512_t)))
             (0x08, 'tree', RPOINTER(RPOINTER(RPOINTER(ctypes.c_uint8)))),
@@ -309,9 +300,9 @@ class SAIv2_API_2026_07_02b(SAIv2_API_Base):
 
 @register_sai_api
 class SAIv2_API_2026_08_13_alpha(SAIv2_API_Base):
-    version_name = 'SAI Ver.2 (64bit) Alpha.2026.08.13'
-    exe_hash = '44c69f5f7e299ec715fd903300e4d717'
-    session_offset = 0x472380
+    version_name = 'SAI Ver.2 (64bit) Alpha.2026.08.23'
+    exe_hash = '9b8e9e74bb333957fa4c210e9b3e5d1b'
+    session_offset = 0x474380
 
     class SAICanvas(SAICanvasBase):
         pass
@@ -399,11 +390,3 @@ class SAI:
 
     def get_pid(self):
         return self.proc.pid
-
-def test():
-    with SAI() as sai:
-        canvas = sai.get_canvas_list()[0]
-        print('Canvas name:', canvas.get_name())
-        img = sai.get_canvas_image(canvas, 5)
-        import cv2
-        cv2.imwrite('test.jpg', img)
