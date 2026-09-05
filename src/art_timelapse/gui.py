@@ -496,9 +496,10 @@ class Settings:
 
 class App(asynctk.AsyncTk):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.title(f'art-timelapse {timelapse.__version__}')
-        self.settings = Settings('.art-timelapse')
+        name = 'art-timelapse'
+        super().__init__(*args, className=name, **kwargs)
+        self.title(f'{name} {timelapse.__version__}')
+        self.settings = Settings(f'.{name}')
         fixed_font = get_fixed_font()
 
         #########################################################
