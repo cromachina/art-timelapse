@@ -73,6 +73,12 @@ def RPOINTER32(dtype):
 def RPOINTER(dtype):
     return _RPOINTER(dtype, RemotePointer64)
 
+def get_base_address_windows(proc:AbstractProcess) -> int | None:
+    try:
+        return next(proc.get_modules()).base_address
+    except:
+        return None
+
 def get_region_data_by_name(proc:AbstractProcess, name:str) -> tuple[str, int] | tuple[None, None]:
     for region in proc.get_memory_regions():
         if name in region.path:
@@ -80,7 +86,10 @@ def get_region_data_by_name(proc:AbstractProcess, name:str) -> tuple[str, int] |
     return None, None
 
 def get_base_address(proc:AbstractProcess) -> int | None:
-    return get_region_data_by_name(proc, psutil.Process(proc.pid).name())[1]
+    if sys.platform == 'win32':
+        return get_base_address_windows(proc)
+    else:
+        return get_region_data_by_name(proc, psutil.Process(proc.pid).name())[1]
 
 sai_api_lookup = {}
 def register_sai_api(api):
