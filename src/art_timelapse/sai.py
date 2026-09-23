@@ -15,6 +15,9 @@ def trim_null(data):
 def from_wide_str(data):
     return trim_null(bytes(data).decode('utf-16le'))
 
+def from_narrow_str(data):
+    return trim_null(bytes(data).decode('utf-8'))
+
 class RemotePointerBase(ctypes.Structure):
     def get(self, proc:AbstractProcess, index=0, count=1, buffer=None):
         dtype = self._type_
@@ -150,12 +153,12 @@ class SAI_API_Base:
     def check_if_canvas_exists(self, canvas) -> bool:
         return any((c._self_ptr == canvas._self_ptr for c in self.get_canvas_list()))
 
-class SAICanvasBase(StructureBase):
+class SAIv1CanvasBase(StructureBase):
     def get_name(self):
-        return from_wide_str(self.name)
+        return from_narrow_str(self.name)
 
     def get_short_path(self):
-        return from_wide_str(self.short_path)
+        return from_narrow_str(self.short_path)
 
 class SAIv1_API_Base(SAI_API_Base):
     process_name = 'sai.exe'
@@ -168,7 +171,7 @@ class SAIv1_API_Base(SAI_API_Base):
             (0xc, 'data', RPOINTER32(ctypes.c_uint8)),
         ])
 
-    class SAICanvas(SAICanvasBase):
+    class SAICanvas(SAIv1CanvasBase):
         pass
 
     SAICanvas._fields_ = offset_fields([
@@ -225,6 +228,13 @@ class SAIv1_API_1_2_6_Beta_3(SAIv1_API_Base):
     exe_hash = 'b693f2c4516c09d008e30827208be1e6'
     session_offset = 0x494bcc
 
+class SAIv2CanvasBase(StructureBase):
+    def get_name(self):
+        return from_wide_str(self.name)
+
+    def get_short_path(self):
+        return from_wide_str(self.short_path)
+
 class SAIv2_API_Base(SAI_API_Base):
     process_name = 'sai2.exe'
     map_count = 0xb
@@ -239,7 +249,7 @@ class SAIv2_API_Base(SAI_API_Base):
             (0x1c, 'count_y', ctypes.c_int32),
         ])
 
-    class SAICanvas(SAICanvasBase):
+    class SAICanvas(SAIv2CanvasBase):
         pass
 
     SAICanvas._fields_ = offset_fields([
@@ -313,7 +323,7 @@ class SAIv2_API_2026_09_21_alpha(SAIv2_API_Base):
     exe_hash = '8d02f35323ac6573a380fd817b5d6355'
     session_offset = 0x478280
 
-    class SAICanvas(SAICanvasBase):
+    class SAICanvas(SAIv2CanvasBase):
         pass
 
     SAICanvas._fields_ = offset_fields([
