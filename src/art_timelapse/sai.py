@@ -318,10 +318,10 @@ class SAIv2_API_2026_07_02b(SAIv2_API_Base):
     session_offset = 0x32eb20
 
 @register_sai_api
-class SAIv2_API_2026_10_19_alpha(SAIv2_API_Base):
-    version_name = 'SAI Ver.2 (64bit) Alpha.2026.10.19'
-    exe_hash = '44aee0ba61ea9f215b1b4dcb4d6d23e0'
-    session_offset = 0x47a380
+class SAIv2_API_2026_11_20_alpha(SAIv2_API_Base):
+    version_name = 'SAI Ver.2 (64bit) Alpha.2026.11.20'
+    exe_hash = '611b7b874a22fff786443140a8ad707f'
+    session_offset = 0x486280
 
     class SAICanvas(SAIv2CanvasBase):
         pass
